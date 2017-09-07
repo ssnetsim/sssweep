@@ -42,7 +42,7 @@ class Sweeper(object):
   def __init__(self, supersim_path, settings_path, sslatency_path, out_dir,
                parse_scalar=None, plot_units=None, ymin=None, ymax=None,
                long_titles=True, plot_style='colon',
-               latency_mode='Packet',
+               latency_mode='packet',
                sim=True, parse=True,
                qplot=True, lplot=True, cplot=True,
                web_viewer=True,
@@ -55,31 +55,34 @@ class Sweeper(object):
       settings_path       : path to settings file
       sslatency_path      : path to sslatency bin
       out_dir             : location of output files directory
-      parse_scalar        : Latency sacalar for parsing
+      parse_scalar        : latency scalar for parsing
       plot_units          : unit of latency (ns)
       ymin, ymax          : ylim for plots
       long_titles         : enable full name on plot titles
       plot_style          : style of plot titles (colon : or equal = )
-      latency_mode        : 'packets', 'messages', 'transactions'
+      latency_mode        : 'packet-header', 'packet', 'message', 'transaction'
       sim, parse          : bools to enable/disable sim and parsing
       qplot, lplot, cplot : bools to enable/disable plots (quad, load, compare)
       web_viewer          : bool to enable/disable web viewer generation
       get_resources       : pointer to set resource function for tasks
     """
     # paths
-    self._supersim_path = os.path.abspath(os.path.expanduser(supersim_path)) # '../supersim/bin/supersim'
-    self._out_dir = os.path.abspath(os.path.expanduser(out_dir)) # where to save files
-    self._settings_path = os.path.abspath(os.path.expanduser(settings_path)) # './settings.json'
-    self._sslatency_path = os.path.abspath(os.path.expanduser(sslatency_path)) # '~/ssdev/sslatency/bin/sslatency'
+    self._supersim_path = os.path.abspath(os.path.expanduser(supersim_path))
+    self._out_dir = os.path.abspath(os.path.expanduser(out_dir))
+    self._settings_path = os.path.abspath(os.path.expanduser(settings_path))
+    self._sslatency_path = os.path.abspath(os.path.expanduser(sslatency_path))
 
     # plot settings
-    self._parse_scalar = parse_scalar # 0.001
-    self._plot_units = plot_units # 'ns'
+    self._parse_scalar = parse_scalar
+    self._plot_units = plot_units
     self._ymin = ymin
     self._ymax = ymax
-    self._long_titles = long_titles # long names for plot titles
-    self._plot_style = plot_style # colon, equal
-    self._latency_mode = latency_mode # 'packet', 'message', 'transaction'
+    self._long_titles = long_titles
+    assert plot_style in ['colon', 'equal']
+    self._plot_style = plot_style
+    assert latency_mode in ['packet-header', 'packet', 'message', 'transaction']
+    self._latency_mode = latency_mode.split('-')[0]  # this ignores '-header'
+    self._header_latency = latency_mode == 'packet-header'
 
     # task activation
     self._sim = sim
