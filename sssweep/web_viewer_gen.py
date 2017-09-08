@@ -28,7 +28,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 """
-
+# css
 def get_css():
   css = """\
 html, body, .viewport {
@@ -113,12 +113,13 @@ h2 {font-size: 20px !important; text-align:center;}
 }"""
   return css
 
-
+# html
 def get_html_top(self, files):
   html_top = ("""\
 <!DOCTYPE html>
 <html>
 <head>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
   <link rel="stylesheet" href="{0}">
   <script src="{1}"></script>
 </head>
@@ -128,7 +129,7 @@ def get_html_top(self, files):
   <aside class="aside aside-1">
          <!-- --------------------------------- -->
          <div class="logo">
-           <a href=""><img src="https://www.labs.hpe.com/img/home/labs-logo.png"
+           <a href="./plots.html"><img src="https://www.labs.hpe.com/img/home/labs-logo.png"
                            alt="HPE Labs logo"/></a>
            <h2>SuperSim Plot Viewer</h2>
          </div>
@@ -162,10 +163,15 @@ def get_html_top(self, files):
 def get_html_bottom():
   html_bottom = """\
 <!-- --------------------------------- -->
-    <div>
+    <div id="settings" style="display:none">
       <p>Filename:</p>
       <p id="plot_name"></p>
+    <hr>
+    <p id ="sim_log" style="display:none">
+      <a id="sim_log_a" href="" target="_blank">simulation log</a>
+    </p>
     </div>
+    <input id="cachingOff" type="checkbox" name="cachingoff" onclick="cashingfunc()"/> Bypass cache [Debug Mode] <br>
   </div>
 </aside>
 <!-- ==================================================================- -->
@@ -181,9 +187,6 @@ def get_html_bottom():
 
 def get_html_dyn(self, load_latency_stats):
   html_dyn = ""
-
-  # ------------------------------------------- #
-  #(KEEP SPACES AS IS)
   vars_selector = ""
   cmp_selector = ""
 
@@ -211,7 +214,6 @@ def get_html_dyn(self, load_latency_stats):
   <option disabled selected value> -- select an option -- </option>
 """.format(self._id_lat_dist))
 
-  # ------------------------------------------- #
   # dynamic generation of selects for html
   for var in self._variables:
     # only one option - pre select it
@@ -220,7 +222,7 @@ def get_html_dyn(self, load_latency_stats):
       select_start = ("""<div style ='display:none;' id="{1}">
 <p>{0}:
 <select id="{1}_sel" onchange="createName()">
-""".format(var['name'], var['short_name'])) #no "select an option"
+""".format(var['name'], var['short_name'])) # no "select an option"
 
       # options - iterate through values
       select_option = ""
@@ -259,7 +261,6 @@ def get_html_dyn(self, load_latency_stats):
     selector = select_start + select_option + select_end
     vars_selector += selector
 
-  # ------------------------------------------- #
   # Compare Variables
   for var in self._variables:
     if var['compare'] and len(var['values']) > 1:
@@ -269,7 +270,7 @@ def get_html_dyn(self, load_latency_stats):
     cmp_option = ""
   else: # multiple comp variables
     cmp_option = disable_select + cmp_option
-  # ------------------------------------------- #
+
   # loop through latency distributions
   for field in load_latency_stats:
     ld_option += ("""  <option value="{0}">{0}</option>
@@ -282,15 +283,70 @@ def get_html_dyn(self, load_latency_stats):
   html_dyn = cmp_selector + vars_selector + ld_selector
   return html_dyn
 
+# javascript
+def load_URL_params(self):
+  dyn = ""
+  top ="""\
+document.onreadystatechange=function(){
+  var mode = getURLParameter('mode_sel');
+  if (mode) {
+    mode_obj = document.getElementById('mode_sel');
+    document.getElementById('mode_sel').value = mode;   //  assign URL param to select field
+  }
+"""
+  # loop through variables to assign parameters
+  for var in self._variables:
+    dyn += ("""
+  var {0}_val = getURLParameter('{0}_sel');
+  if ({0}_val) {{
+    document.getElementById('{0}_sel').value = {0}_val;   //  assign URL param to select field
+  }}
+""").format(var['short_name'])
+
+    lat_cmp = ("""\
+  var {0}_val = getURLParameter('{0}_sel');
+  if ({0}_val) {{
+    document.getElementById('LatDist_sel').value = {0}_val;   //  assign URL param to select field
+  }}
+
+  var {1}_val = getURLParameter('{1}_sel');
+  if ({1}_val) {{
+    document.getElementById('{1}_sel').value = {1}_val;   //  assign URL param to select field
+  }}
+""").format(self._id_lat_dist, self._id_cmp)
+
+  bottom = ("""\
+if (mode == "cplot") {{
+    document.getElementById('{0}').style.display = "block";
+    if ({0}_val) {{
+      c = document.getElementById('{0}_sel');
+      CplotDivs(c);
+    }}
+  }} else {{
+    showDiv(mode_obj);
+  }}
+}}
+""").format(self._id_cmp)
+
+  return top + dyn + lat_cmp + bottom
+
+def get_URL_params():
+  get_url =  """function getURLParameter(name) {
+  return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(location.search) || [null, ''])[1].replace(/\+/g, '%20')) || null;
+}
+"""
+  return get_url
 
 def get_show_div(self):
   top = """function showDiv(elem){
+    document.getElementById("sim_log").style.display = "none";
 """
   qplot_top = """\
   if(elem.value == "qplot") {{
     // no comp no loaddist
     document.getElementById('{0}').style.display = "none";
     document.getElementById('{1}').style.display = "none";
+    document.getElementById("sim_log").style.display = "block";
 """.format(self._id_cmp, self._id_lat_dist)
 
   lplot_top = """\
@@ -404,15 +460,67 @@ def get_create_name():
 function noImgFile() {
   document.getElementById("plot_name").style.color = "red";
   document.getElementById('plot').src = '';
+  document.getElementById("sim_log_a").style.color = "red";
 }
 
 function createName() {
-    document.getElementById("plot_name").innerHTML = composeName();
-    document.getElementById("plot_name").style.color = "black";
+  document.getElementById("settings").style.display = "block";
+  document.getElementById("plot_name").innerHTML = composeName();
+  document.getElementById("plot_name").style.color = "black";
+
+  if ($('#cachingOff').is(':checked')) {
+    document.getElementById('plot').src = '../plots/' + composeName() + '?time='+ new Date().getTime();
+  } else {
     document.getElementById('plot').src = '../plots/' + composeName();
+  }
+
+  addURLparams();
+  if (document.getElementById("mode_sel").value == "qplot") {
+    document.getElementById("sim_log_a").style.color = "blue";
+    document.getElementById("sim_log_a").href = '../logs/' + getSimLog();
+  }
 }
 """
   return create_name
+
+
+def get_sim_log(self):
+  top = """\
+function getSimLog() {
+"""
+  bottom = """\
+  var y = "";
+  for (var i = 0; i < vars_div_id.length; i++) {
+    curr_elem = document.getElementById(vars_div_id[i]);
+    if (curr_elem.style.display == "block") {
+      y += '_'
+      y += document.getElementById(vars_sel_id[i]).value;
+    } else if(curr_elem.style.color == "blue") {
+      y += '_'
+      y += document.getElementById(vars_sel_id[i]).value;
+    }
+  }
+  return 'simout' + y + '.log'
+}
+"""
+  # format variables for js
+  var_div_id = [] # list of div ids
+  var_sel_id = [] # list of selectors ids
+  # div ids
+  var_div_id.append(self._id_cmp)
+  for var in self._variables:
+    var_div_id.append(var['short_name'])
+  var_div_id.append(self._id_lat_dist)
+  # slector ids
+  for v_id in var_div_id:
+    sid = v_id + '_sel'
+    var_sel_id.append(sid)
+
+  dyn = """\
+  var vars_div_id = {0};
+  var vars_sel_id = {1};
+""".format(var_div_id, var_sel_id)
+  return top + dyn + bottom
 
 
 def get_compose_name(self):
@@ -423,21 +531,68 @@ function composeName() {
   bottom = """\
   // get displayed div values
   var y = "";
-  for (var i = 0; i < vars_div_id.length; i++)
-  {
+  for (var i = 0; i < vars_div_id.length; i++) {
     curr_elem = document.getElementById(vars_div_id[i]);
-    if (curr_elem.style.display == "block")
-    {
+    if (curr_elem.style.display == "block") {
       y += '_'
       y += document.getElementById(vars_sel_id[i]).value;
-    } else if(curr_elem.style.color == "blue")
-    {
-      y += '_'
-      y += document.getElementById(vars_sel_id[i]).value;
+    } else if(curr_elem.style.color == "blue") {
+      if (vars_div_id[i] != 'l') {
+        y += '_'
+        y += document.getElementById(vars_sel_id[i]).value;
+      } else if (m == 'qplot') {
+        y += '_'
+        y += document.getElementById(vars_sel_id[i]).value;
+      }
     }
   }
   return m + y + '.png'
-}"""
+}
+"""
+  # format variables for js
+  var_div_id = [] # list of div ids
+  var_sel_id = [] # list of selectors ids
+  # div ids
+  var_div_id.append(self._id_cmp)
+  for var in self._variables:
+    var_div_id.append(var['short_name'])
+  var_div_id.append(self._id_lat_dist)
+  # slector ids
+  for v_id in var_div_id:
+    sid = v_id + '_sel'
+    var_sel_id.append(sid)
+
+  dyn = """\
+  var vars_div_id = {0};
+  var vars_sel_id = {1};
+""".format(var_div_id, var_sel_id)
+  return top + dyn + bottom
+
+
+def add_URL_params(self):
+  top = """\
+function addURLparams() {
+  var params = "";
+  var m = document.getElementById("mode_sel").value;
+  params += "mode_sel=" + m;
+"""
+  bottom = """\
+  // get displayed div values
+  val = '';
+  for (var i = 0; i < vars_div_id.length; i++) {
+    curr_elem = document.getElementById(vars_div_id[i]);
+    if (curr_elem.style.display == "block") {
+      val = document.getElementById(vars_sel_id[i]).value;
+      params += "&" + vars_sel_id[i] + '=' + val;
+    } else if(curr_elem.style.color == "blue") {
+      val = document.getElementById(vars_sel_id[i]).value;
+      params += "&" + vars_sel_id[i] + '=' + val;
+    }
+  }
+
+  history.pushState(null, '', 'plots.html?'+params);
+}
+"""
   # format variables for js
   var_div_id = [] # list of div ids
   var_sel_id = [] # list of selectors ids

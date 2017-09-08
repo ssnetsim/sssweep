@@ -703,11 +703,17 @@ class Sweeper(object):
       print(html_all, file=fd_html)
 
     # javascript
+    get_params = get_URL_params()
+    load_params = load_URL_params(self)
+    add_params = add_URL_params(self)
+    get_log = get_sim_log(self)
+
     show_div = get_show_div(self)
     cplot_divs = get_cplot_divs(self)
     create_name = get_create_name()
     compose_name = get_compose_name(self)
 
-    js_all = show_div + cplot_divs + create_name + compose_name
+    js_all = load_params + get_params + show_div + cplot_divs + create_name + \
+    get_log + compose_name + add_params
     with open(files['javascript'], 'w') as fd_js:
       print(js_all, file=fd_js)
