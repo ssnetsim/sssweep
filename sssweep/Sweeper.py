@@ -41,12 +41,13 @@ class Sweeper(object):
 
   def __init__(self, supersim_path, settings_path, sslatency_path, out_dir,
                parse_scalar=None, plot_units=None, ymin=None, ymax=None,
-               long_titles=True, plot_style='colon',
+               titles='short', plot_style='colon',
                latency_mode='packet',
                sim=True, parse=True,
                qplot=True, lplot=True, cplot=True,
                web_viewer=True,
-               get_resources=None):
+               get_resources=None,
+               readme=None):
     """
     Constructs a Sweeper object
 
@@ -58,13 +59,14 @@ class Sweeper(object):
       parse_scalar        : latency scalar for parsing
       plot_units          : unit of latency (ns)
       ymin, ymax          : ylim for plots
-      long_titles         : enable full name on plot titles
+      titles              : plot titles format (short, long, off)
       plot_style          : style of plot titles (colon : or equal = )
       latency_mode        : 'packet-header', 'packet', 'message', 'transaction'
       sim, parse          : bools to enable/disable sim and parsing
       qplot, lplot, cplot : bools to enable/disable plots (quad, load, compare)
       web_viewer          : bool to enable/disable web viewer generation
       get_resources       : pointer to set resource function for tasks
+      readme              : text for readme file
     """
     # paths
     self._supersim_path = os.path.abspath(os.path.expanduser(supersim_path))
@@ -77,7 +79,8 @@ class Sweeper(object):
     self._plot_units = plot_units
     self._ymin = ymin
     self._ymax = ymax
-    self._long_titles = long_titles
+    assert titles in ['long', 'short', 'off']
+    self._titles = titles
     assert plot_style in ['colon', 'equal']
     self._plot_style = plot_style
     assert latency_mode in ['packet-header', 'packet', 'message', 'transaction']
@@ -131,7 +134,13 @@ class Sweeper(object):
       except:
         self._error('couldn\'t create {0}'.format(self._out_dir))
 
-    # create subfolders
+    # create subfolders and readme file
+    #readme
+    if readme is not None:
+      readme_f = os.path.join(self._out_dir, 'README.txt')
+      with open(readme_f, 'w') as fd_readme:
+        print(readme, file=fd_readme)
+
     # data
     data_f = os.path.join(self._out_dir, 'data/')
     if not os.path.isdir(data_f):
@@ -154,6 +163,7 @@ class Sweeper(object):
         os.mkdir(plots_f)
       except:
         self._error('couldn\'t create {0}'.format(plots_f))
+
     # web_viewer
     web_viewer_f = os.path.join(self._out_dir, 'web_viewer/')
     if not os.path.isdir(web_viewer_f):
@@ -340,9 +350,9 @@ class Sweeper(object):
     #tuples
     name_values = []
     for y_values in config:
-      if self._long_titles:
+      if self._titles == 'long':
         name_values.append((y_values['name'], str(y_values['value'])))
-      else:
+      elif self._titles == 'short':
         name_values.append((y_values['short_name'], str(y_values['value'])))
 
     #format
@@ -356,19 +366,19 @@ class Sweeper(object):
         title += tmp
     # qplot
     if plot_type == 'qplot':
-      if self._long_titles:
+      if self._titles:
         title = '"Latency ({0})"'.format(title)
       else:
         title = '"Lat ({0})"'.format(title)
     #lplot
     if plot_type == 'lplot':
-      if self._long_titles:
+      if self._titles:
         title = '"Load vs. Latency ({0})"'.format(title)
       else:
         title = '"LvL ({0})"'.format(title)
     #cplot
     if plot_type == 'cplot':
-      if self._long_titles:
+      if self._titles:
         title = '"{0} Comparison ({1} [{2}])"'.format(cvar['name'], title, lat_dist)
       else:
         title = '"{0} Cmp ({1} [{2}])"'.format(cvar['short_name'], title, lat_dist)
@@ -556,11 +566,15 @@ class Sweeper(object):
       id_task = self._make_id(qplot_config)
       files = self._get_files(id_task)
       qplot_name = 'qplot_{0}'.format(id_task)
-      qplot_title = self._make_title(qplot_config, 'qplot')
-      qplot_cmd = 'sslqp {0} {1} --title {2} '.format(
+
+      qplot_cmd = 'sslqp {0} {1} '.format(
         files['latency_csv'],
-        files['qplot_png'],
-        qplot_title)
+        files['qplot_png'])
+
+      if self._titles != 'off':
+        qplot_title = self._make_title(qplot_config, 'qplot')
+        qplot_cmd += (' --title {0} '.format(qplot_title))
+
       if self._plot_units is not None:
         qplot_cmd += (' --units {0} '.format(self._plot_units))
       qplot_task = taskrun.ProcessTask(tm_var, qplot_name, qplot_cmd)
@@ -577,12 +591,16 @@ class Sweeper(object):
     for lplot_config in self._dim_iter(dont=self._load_name):
       id_task1 = self._make_id(lplot_config)
       lplot_name = 'lplot_{0}'.format(id_task1)
-      lplot_title = self._make_title(lplot_config, 'lplot')
       files1 = self._get_files(id_task1)
       # lplot cmd
-      lplot_cmd = ('ssllp --row {0} {1} {2} {3} {4} --title {5}'
+      lplot_cmd = ('ssllp --row {0} {1} {2} {3} {4} '
                    .format(self._latency_mode.title(), files1['lplot_png'],
-                           self._start, self._stop + 1, self._step, lplot_title))
+                           self._start, self._stop + 1, self._step))
+
+      if self._titles != 'off':
+        lplot_title = self._make_title(lplot_config, 'lplot')
+        lplot_cmd += (' --title {0} '.format(lplot_title))
+
       # check plot settings
       if self._plot_units is not None:
         lplot_cmd += (' --units {0}'.format(self._plot_units))
@@ -629,19 +647,21 @@ class Sweeper(object):
           for field in ssplot.LoadLatencyStats.FIELDS:
             # make id, plot title, png file
             id_task = self._make_id(cplot_config, extra=field)
-            cplot_title = self._make_title(cplot_config, 'cplot', cvar=cvar,
-                                           lat_dist=field)
             cplot_name = 'cplot_{0}_{1}'.format(cvar['short_name'], id_task)
-
             files = self._get_files(('{0}_{1}'.format(cvar['short_name'],
                                                       id_task)))
 
             # cmd
-            cplot_cmd = ('sslcp --row {0} --title {1} --field {2} {3} {4} {5} '
-                         '{6} '
-                         .format(self._latency_mode.title(), cplot_title,
+            cplot_cmd = ('sslcp --row {0} --field {1} {2} {3} {4} {5} '
+                         .format(self._latency_mode.title(),
                                  field, files['cplot_png'],
                                  self._start, self._stop + 1, self._step))
+            # title
+            if self._titles != 'off':
+              cplot_title = self._make_title(cplot_config, 'cplot', cvar=cvar,
+                                           lat_dist=field)
+              cplot_cmd += (' --title {0} '.format(cplot_title))
+
             # add plot settings if they exist
             if self._plot_units is not None:
               cplot_cmd += (' --units {0}'.format(self._plot_units))
