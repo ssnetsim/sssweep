@@ -546,6 +546,8 @@ class Sweeper(object):
         files['latency_csv'],
         files['aggregate_csv'],
         files['messages_mpf'])
+      if self._header_latency:
+        parse_cmd += ' --headerlatency'
 
       if self._parse_scalar is not None:
         parse_cmd += ' -s {0}'.format(self._parse_scalar)
