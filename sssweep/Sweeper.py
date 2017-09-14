@@ -40,11 +40,12 @@ from .web_viewer_gen import *
 class Sweeper(object):
 
   def __init__(self, supersim_path, settings_path, sslatency_path, out_dir,
-               parse_scalar=None, plot_units=None, ymin=None, ymax=None,
+               parse_scalar=None, parse_filters=[], plot_units=None,
+               ymin=None, ymax=None,
                titles='short', plot_style='colon',
                latency_mode='packet',
                sim=True, parse=True,
-               qplot=True, lplot=True, cplot=True,
+               qplot=True, rplot=True, lplot=True, cplot=True,
                web_viewer=True,
                get_resources=None,
                readme=None):
@@ -63,7 +64,8 @@ class Sweeper(object):
       plot_style          : style of plot titles (colon : or equal = )
       latency_mode        : 'packet-header', 'packet', 'message', 'transaction'
       sim, parse          : bools to enable/disable sim and parsing
-      qplot, lplot, cplot : bools to enable/disable plots (quad, load, compare)
+      qplot, lplot
+      rplot, cplot        : bools to enable/disable plots (quad, load, compare)
       web_viewer          : bool to enable/disable web viewer generation
       get_resources       : pointer to set resource function for tasks
       readme              : text for readme file
@@ -76,6 +78,7 @@ class Sweeper(object):
 
     # plot settings
     self._parse_scalar = parse_scalar
+    self._parse_filters = parse_filters
     self._plot_units = plot_units
     self._ymin = ymin
     self._ymax = ymax
@@ -92,6 +95,7 @@ class Sweeper(object):
     self._parse = parse
     self._qplot = qplot
     self._lplot = lplot
+    self._rplot = rplot
     self._cplot = cplot
     self._web_viewer = web_viewer
     self._get_resources = get_resources
@@ -135,6 +139,10 @@ class Sweeper(object):
         self._error('couldn\'t create {0}'.format(self._out_dir))
 
     # create subfolders and readme file
+    self._data_folder = 'data'
+    self._logs_folder = 'logs'
+    self._plots_folder = 'plots'
+    self._viewer_folder = 'viewer'
     #readme
     if readme is not None:
       readme_f = os.path.join(self._out_dir, 'README.txt')
@@ -142,14 +150,14 @@ class Sweeper(object):
         print(readme, file=fd_readme)
 
     # data
-    data_f = os.path.join(self._out_dir, 'data/')
+    data_f = os.path.join(self._out_dir, self._data_folder)
     if not os.path.isdir(data_f):
       try:
         os.mkdir(data_f)
       except:
         self._error('couldn\'t create {0}'.format(data_f))
     # logs
-    logs_f = os.path.join(self._out_dir, 'logs/')
+    logs_f = os.path.join(self._out_dir, self._logs_folder)
     if not os.path.isdir(logs_f):
       try:
         os.mkdir(logs_f)
@@ -157,7 +165,7 @@ class Sweeper(object):
         self._error('couldn\'t create {0}'.format(logs_f))
 
     # plots
-    plots_f = os.path.join(self._out_dir, 'plots/')
+    plots_f = os.path.join(self._out_dir, self._plots_folder)
     if not os.path.isdir(plots_f):
       try:
         os.mkdir(plots_f)
@@ -165,7 +173,7 @@ class Sweeper(object):
         self._error('couldn\'t create {0}'.format(plots_f))
 
     # web_viewer
-    web_viewer_f = os.path.join(self._out_dir, 'web_viewer/')
+    web_viewer_f = os.path.join(self._out_dir, self._viewer_folder)
     if not os.path.isdir(web_viewer_f):
       try:
         os.mkdir(web_viewer_f)
@@ -331,6 +339,10 @@ class Sweeper(object):
      Lat (TP: UR, RA: AD, LD: 0.56)
      Lat (TP=UR RA=AD LD=0.56)
 
+    # rplots
+     Accepted Rate (TrafficPattern: UR, RoutingAlgorithm: AD)
+     Rate (TP: UR, RA: AD)
+
     # lplots
      Load vs. Latency (TrafficPattern: UR, RoutingAlgorithm: AD)
      LvL (TP: UR, RA: AD)
@@ -366,21 +378,27 @@ class Sweeper(object):
         title += tmp
     # qplot
     if plot_type == 'qplot':
-      if self._titles:
+      if self._titles == 'long':
         title = '"Latency ({0})"'.format(title)
-      else:
+      elif self._titles == 'short':
         title = '"Lat ({0})"'.format(title)
     #lplot
     if plot_type == 'lplot':
-      if self._titles:
+      if self._titles == 'long':
         title = '"Load vs. Latency ({0})"'.format(title)
-      else:
+      elif self._titles == 'short':
         title = '"LvL ({0})"'.format(title)
+    #rplot
+    if plot_type == 'rplot':
+      if self._titles == 'long':
+        title = '"Delivered Rate ({0})"'.format(title)
+      elif self._titles == 'short':
+        title = '"Delivered Rate ({0})"'.format(title)
     #cplot
     if plot_type == 'cplot':
-      if self._titles:
+      if self._titles == 'long':
         title = '"{0} Comparison ({1} [{2}])"'.format(cvar['name'], title, lat_dist)
-      else:
+      elif self._titles == 'short':
         title = '"{0} Cmp ({1} [{2}])"'.format(cvar['short_name'], title, lat_dist)
     return title
 
@@ -428,31 +446,33 @@ class Sweeper(object):
     dir_var = self._out_dir
     return {
       'messages_mpf'  : os.path.join(
-        dir_var, 'data', 'messages_{0}.mpf.gz'.format(id_task)),
+        dir_var, self._data_folder, 'messages_{0}.mpf.gz'.format(id_task)),
       'rates_csv'     : os.path.join(
-        dir_var, 'data', 'rates_{0}.csv.gz'.format(id_task)),
+        dir_var, self._data_folder, 'rates_{0}.csv.gz'.format(id_task)),
       'channels_csv'  : os.path.join(
-        dir_var, 'data', 'channels_{0}.csv.gz'.format(id_task)),
+        dir_var, self._data_folder, 'channels_{0}.csv.gz'.format(id_task)),
       'latency_csv'   : os.path.join(
-        dir_var, 'data', 'latency_{0}.csv.gz'.format(id_task)),
+        dir_var, self._data_folder, 'latency_{0}.csv.gz'.format(id_task)),
       'aggregate_csv' : os.path.join(
-        dir_var, 'data', 'aggregate_{0}.csv.gz'.format(id_task)),
+        dir_var, self._data_folder, 'aggregate_{0}.csv.gz'.format(id_task)),
       'usage_log'     : os.path.join(
-        dir_var, 'logs', 'usage_{0}.log'.format(id_task)),
+        dir_var, self._logs_folder, 'usage_{0}.log'.format(id_task)),
       'simout_log'    : os.path.join(
-        dir_var, 'logs', 'simout_{0}.log'.format(id_task)),
+        dir_var, self._logs_folder, 'simout_{0}.log'.format(id_task)),
       'qplot_png'     : os.path.join(
-        dir_var, 'plots', 'qplot_{0}.png'.format(id_task)),
+        dir_var, self._plots_folder, 'qplot_{0}.png'.format(id_task)),
+      'rplot_png'     : os.path.join(
+        dir_var, self._plots_folder, 'rplot_{0}.png'.format(id_task)),
       'lplot_png'     : os.path.join(
-        dir_var, 'plots', 'lplot_{0}.png'.format(id_task)),
+        dir_var, self._plots_folder, 'lplot_{0}.png'.format(id_task)),
       'cplot_png'     : os.path.join(
-        dir_var, 'plots', 'cplot_{0}.png'.format(id_task)),
+        dir_var, self._plots_folder, 'cplot_{0}.png'.format(id_task)),
       'html'          : os.path.join(
-        dir_var, 'web_viewer', 'plots.html'),
+        dir_var, self._viewer_folder, 'index.html'),
       'javascript'    : os.path.join(
-        dir_var, 'web_viewer', 'dynamic_plot.js'),
+        dir_var, self._viewer_folder, 'dynamic_plot.js'),
       'css'           : os.path.join(
-        dir_var, 'web_viewer', 'style.css'),
+        dir_var, self._viewer_folder, 'style.css'),
       'javascript_in' : 'dynamic_plot.js',
       'css_in'        : 'style.css'
     }
@@ -490,11 +510,14 @@ class Sweeper(object):
     if self._lplot:
       print("Creating lplot tasks")
       self._create_lplot_tasks(tm_var)
+    if self._rplot:
+      print("Creating rplot tasks")
+      self._create_rplot_tasks(tm_var)
     if self._cplot:
       print("Creating cplot tasks")
       self._create_cplot_tasks(tm_var)
     if self._web_viewer:
-      print("Creating web_viewer")
+      print("Creating viewer")
       self._create_web_viewer_task()
 
   def _create_sim_tasks(self, tm_var):
@@ -551,6 +574,11 @@ class Sweeper(object):
 
       if self._parse_scalar is not None:
         parse_cmd += ' -s {0}'.format(self._parse_scalar)
+
+      # parse filters
+      for filter in self._parse_filters:
+        parse_cmd += ' -f {0}'.format(filter)
+
       # parse task
       parse_task = taskrun.ProcessTask(tm_var, parse_name, parse_cmd)
       if self._get_resources is not None:
@@ -587,6 +615,53 @@ class Sweeper(object):
       qplot_task.add_condition(taskrun.FileModificationCondition(
         [files['latency_csv']],
         [files['qplot_png']]))
+
+  def _create_rplot_tasks(self, tm_var):
+    # config with no load
+    for rplot_config in self._dim_iter(dont=self._load_name):
+      id_task1 = self._make_id(rplot_config)
+      rplot_name = 'rplot_{0}'.format(id_task1)
+      files1 = self._get_files(id_task1)
+
+      # rplot cmd
+      rplot_cmd = ('sslrp {0} {1} {2} {3}'
+                   .format(files1['rplot_png'],
+                           self._start, self._stop + 1, self._step))
+
+      # add to rplot_cmd the load files- sweep load
+      for loads in self._dim_iter(do_vars=self._load_name):
+        id_task2 = self._make_id(rplot_config, extra=self._make_id(loads))
+        files2 = self._get_files(id_task2)
+        rplot_cmd += ' {0}'.format(files2['rates_csv'])
+
+      if self._titles != 'off':
+        rplot_title = self._make_title(rplot_config, 'rplot')
+        rplot_cmd += (' --title {0} '.format(rplot_title))
+
+      # check plot settings
+      if self._ymin is not None:
+        rplot_cmd += (' --ymin {0}'.format(self._ymin))
+      if self._ymax is not None:
+        rplot_cmd += (' --ymax {0}'.format(self._ymax))
+
+      # create task
+      rplot_task = taskrun.ProcessTask(tm_var, rplot_name, rplot_cmd)
+      if self._get_resources is not None:
+        rplot_task.resources = self._get_resources('rplot', rplot_config)
+      rplot_task.priority = 1
+      # add dependencies
+      for loads in  self._dim_iter(do_vars=self._load_name):
+        id_task3 = self._make_id(rplot_config, extra=self._make_id(loads))
+        rplot_task.add_dependency(self._parse_tasks[id_task3])
+
+      rplot_fmc = taskrun.FileModificationCondition([], [files1['rplot_png']])
+
+      # add input files to task
+      for loads in self._dim_iter(do_vars=self._load_name):
+        id_task4 = self._make_id(rplot_config, extra=self._make_id(loads))
+        files3 = self._get_files(id_task4)
+        rplot_fmc.add_input(files3['rates_csv'])
+      rplot_task.add_condition(rplot_fmc)
 
   def _create_lplot_tasks(self, tm_var):
     # config with no load
@@ -647,8 +722,9 @@ class Sweeper(object):
                                                  cvar['name']]):
           # iterate all latency distributions (9)
           for field in ssplot.LoadLatencyStats.FIELDS:
+            field2 = field.replace('%','')
             # make id, plot title, png file
-            id_task = self._make_id(cplot_config, extra=field)
+            id_task = self._make_id(cplot_config, extra=field2)
             cplot_name = 'cplot_{0}_{1}'.format(cvar['short_name'], id_task)
             files = self._get_files(('{0}_{1}'.format(cvar['short_name'],
                                                       id_task)))

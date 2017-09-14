@@ -129,7 +129,7 @@ def get_html_top(self, files):
   <aside class="aside aside-1">
          <!-- --------------------------------- -->
          <div class="logo">
-           <a href="./plots.html"><img src="https://www.labs.hpe.com/img/home/labs-logo.png"
+           <a href="."><img src="https://www.labs.hpe.com/img/home/labs-logo.png"
                            alt="HPE Labs logo"/></a>
            <h2>SuperSim Plot Viewer</h2>
          </div>
@@ -139,6 +139,7 @@ def get_html_top(self, files):
            <select id="mode_sel" name="mode_select" onchange="showDiv(this)">
              <option disabled selected value> -- select an option -- </option>
              <option value="lplot">lplot</option>
+             <option value="rplot">rplot</option>
              <option value="qplot">qplot</option>
 """.format(files['css_in'], files['javascript_in']))
 
@@ -148,7 +149,8 @@ def get_html_top(self, files):
          </div>
          <hr>
 <!-- --------------------------------- -->
-  <div id="options">"""
+  <div id="options">
+"""
   else:
     html_top2 = """\
              <option value="cplot">cplot</option>
@@ -156,7 +158,8 @@ def get_html_top(self, files):
          </div>
          <hr>
 <!-- --------------------------------- -->
-  <div id="options">"""
+  <div id="options">
+"""
   return html_top + html_top2
 
 
@@ -202,8 +205,9 @@ def get_html_dyn(self, load_latency_stats):
 <select id="{0}_sel" onchange="CplotDivs(this)">
 """.format(self._id_cmp))
   # select an option
-  disable_select = ("<option disabled selected value> -- "
-                    "select an option -- </option>")
+  disable_select = ("""\
+<option disabled selected value> -- select an option -- </option>
+""")
 
   # latency distribution selector
   ld_option = ""
@@ -229,13 +233,13 @@ def get_html_dyn(self, load_latency_stats):
       if var['values_dic'] is not None: # with dict name ()
         for val in var['values_dic']:
           select_option += ("""\
-  <option value="{0}" selected="true" disabled="disabled">{1} ({0})</option>
-          """.format(val, var['values_dic'][val]))
+<option value="{0}" selected="true" disabled="disabled">{1} ({0})</option>
+""".format(val, var['values_dic'][val]))
       else: # no dict name
         for val in var['values']:
           select_option += ("""\
-  <option value="{0}" selected="true" disabled="disabled">{0}</option>
-            """.format(val))
+<option value="{0}" selected="true" disabled="disabled">{0}</option>
+""".format(val))
 
     # more than 1 value - multiple options
     elif len(var['values']) > 1:
@@ -252,11 +256,11 @@ def get_html_dyn(self, load_latency_stats):
       if var['values_dic'] is not None: # with dict name ()
         for val in var['values_dic']:
           select_option += ("""  <option value="{0}">{1} ({0})</option>
-          """.format(val, var['values_dic'][val]))
+""".format(val, var['values_dic'][val]))
       else: # no dict name
         for val in var['values']:
           select_option += ("""  <option value="{0}">{0}</option>
-            """.format(val))
+""".format(val))
 
     selector = select_start + select_option + select_end
     vars_selector += selector
@@ -265,7 +269,7 @@ def get_html_dyn(self, load_latency_stats):
   for var in self._variables:
     if var['compare'] and len(var['values']) > 1:
       cmp_option += ("""  <option value="{1}">{0} ({1})</option>
-      """.format(var['name'], var['short_name']))
+""".format(var['name'], var['short_name']))
   if self._comp_var_count == 0: # no compare variable
     cmp_option = ""
   else: # multiple comp variables
@@ -273,6 +277,7 @@ def get_html_dyn(self, load_latency_stats):
 
   # loop through latency distributions
   for field in load_latency_stats:
+    field = field.replace('%','')
     ld_option += ("""  <option value="{0}">{0}</option>
 """.format(field))
 
@@ -303,7 +308,7 @@ document.onreadystatechange=function(){
   }}
 """).format(var['short_name'])
 
-    lat_cmp = ("""\
+  lat_cmp = ("""\
   var {0}_val = getURLParameter('{0}_sel');
   if ({0}_val) {{
     document.getElementById('LatDist_sel').value = {0}_val;   //  assign URL param to select field
@@ -356,6 +361,13 @@ def get_show_div(self):
     document.getElementById('{1}').style.display = "none";
 """.format(self._id_cmp, self._id_lat_dist)
 
+  rplot_top = """\
+  }} else if (elem.value == "rplot") {{
+    // no load no comp no loaddist
+    document.getElementById('{0}').style.display = "none";
+    document.getElementById('{1}').style.display = "none";
+""".format(self._id_cmp, self._id_lat_dist)
+
   cplot_top = """\
   }} else if (elem.value == "cplot") {{
     // only cmp selector
@@ -373,6 +385,7 @@ createName();
   #--------------------------------------------#
   qplot_dyn = ""
   lplot_dyn = ""
+  rplot_dyn = ""
   cplot_dyn = ""
   id_one = ""
   for var in self._variables:
@@ -420,8 +433,9 @@ createName();
     document.getElementById('{0}').style.display = "none";
 """.format(var['short_name'])
 
+  rplot_dyn = lplot_dyn
   return top + id_one + qplot_top + qplot_dyn + lplot_top + lplot_dyn + \
-cplot_top + cplot_dyn + bottom
+rplot_top + rplot_dyn + cplot_top + cplot_dyn + bottom
 
 
 def get_cplot_divs(self):
@@ -590,7 +604,7 @@ function addURLparams() {
     }
   }
 
-  history.pushState(null, '', 'plots.html?'+params);
+  history.pushState(null, '', 'index.html?'+params);
 }
 """
   # format variables for js
