@@ -40,12 +40,13 @@ from .web_viewer_gen import *
 class Sweeper(object):
 
   def __init__(self, supersim_path, settings_path, sslatency_path, out_dir,
-               parse_scalar=None, parse_filters=[], plot_units=None,
-               ymin=None, ymax=None,
+               parse_scalar=None, parse_filters=[], latency_units=None,
+               latency_ymin=None, latency_ymax=None,
+               rate_ymin=None, rate_ymax=None,
                titles='short', plot_style='colon',
                latency_mode='packet',
                sim=True, parse=True,
-               qplot=True, rplot=True, lplot=True, cplot=True,
+               qplot=True, lplot=True, rplot=True, cplot=True,
                web_viewer=True,
                get_resources=None,
                readme=None):
@@ -53,22 +54,27 @@ class Sweeper(object):
     Constructs a Sweeper object
 
     Args:
-      supersim_path       : path to supersim bin
-      settings_path       : path to settings file
-      sslatency_path      : path to sslatency bin
-      out_dir             : location of output files directory
-      parse_scalar        : latency scalar for parsing
-      plot_units          : unit of latency (ns)
-      ymin, ymax          : ylim for plots
-      titles              : plot titles format (short, long, off)
-      plot_style          : style of plot titles (colon : or equal = )
-      latency_mode        : 'packet-header', 'packet', 'message', 'transaction'
-      sim, parse          : bools to enable/disable sim and parsing
-      qplot, lplot
-      rplot, cplot        : bools to enable/disable plots (quad, load, compare)
-      web_viewer          : bool to enable/disable web viewer generation
-      get_resources       : pointer to set resource function for tasks
-      readme              : text for readme file
+      supersim_path  : path to supersim bin
+      settings_path  : path to settings file
+      sslatency_path : path to sslatency bin
+      out_dir        : location of output files directory
+      parse_scalar   : latency scalar for parsing
+      latency_units  : unit of latency for plots
+      latency_ymin   : ymin for latency plots
+      latency_ymax   : ymax for latency plots
+      rate_ymin      : ymin for rate plots
+      rate_ymax      : ymax for rate plots
+      titles         : plot titles format (short, long, off)
+      plot_style     : style of plot titles (colon : or equal = )
+      latency_mode   : 'packet-header', 'packet', 'message', 'transaction'
+      sim, parse     : bools to enable/disable sim and parsing
+      qplot          : enable/disable quad plots
+      lplot          : enable/disable load vs. latency plots
+      rplot          : enable/disable load vs. latency plots
+      cplot          : enable/disable comparison plots
+      web_viewer     : bool to enable/disable web viewer generation
+      get_resources  : pointer to set resource function for tasks
+      readme         : text for readme file
     """
     # paths
     self._supersim_path = os.path.abspath(os.path.expanduser(supersim_path))
@@ -79,9 +85,11 @@ class Sweeper(object):
     # plot settings
     self._parse_scalar = parse_scalar
     self._parse_filters = parse_filters
-    self._plot_units = plot_units
-    self._ymin = ymin
-    self._ymax = ymax
+    self._latency_units = latency_units
+    self._latency_ymin = latency_ymin
+    self._latency_ymax = latency_ymax
+    self._rate_ymin = rate_ymin
+    self._rate_ymax = rate_ymax
     assert titles in ['long', 'short', 'off']
     self._titles = titles
     assert plot_style in ['colon', 'equal']
@@ -393,13 +401,15 @@ class Sweeper(object):
       if self._titles == 'long':
         title = '"Delivered Rate ({0})"'.format(title)
       elif self._titles == 'short':
-        title = '"Delivered Rate ({0})"'.format(title)
+        title = '"Rate ({0})"'.format(title)
     #cplot
     if plot_type == 'cplot':
       if self._titles == 'long':
-        title = '"{0} Comparison ({1} [{2}])"'.format(cvar['name'], title, lat_dist)
+        title = '"{0} Comparison ({1} [{2}])"'.format(
+          cvar['name'], title, lat_dist)
       elif self._titles == 'short':
-        title = '"{0} Cmp ({1} [{2}])"'.format(cvar['short_name'], title, lat_dist)
+        title = '"{0} Cmp ({1} [{2}])"'.format(
+          cvar['short_name'], title, lat_dist)
     return title
 
   def _create_config(self, *args):
@@ -433,7 +443,7 @@ class Sweeper(object):
     assert cmd is not None, 'You must return a command modifier'
     if isinstance(cmd, str):
       cmd = [cmd]
-    clean = ' '+' '.join([str(x_values) for x_values in [y for y in cmd]])
+    clean = ' ' + ' '.join([str(x_values) for x_values in [y for y in cmd]])
     return clean
 
   def _get_files(self, id_task):
@@ -605,8 +615,8 @@ class Sweeper(object):
         qplot_title = self._make_title(qplot_config, 'qplot')
         qplot_cmd += (' --title {0} '.format(qplot_title))
 
-      if self._plot_units is not None:
-        qplot_cmd += (' --units {0} '.format(self._plot_units))
+      if self._latency_units is not None:
+        qplot_cmd += (' --units {0} '.format(self._latency_units))
       qplot_task = taskrun.ProcessTask(tm_var, qplot_name, qplot_cmd)
       if self._get_resources is not None:
         qplot_task.resources = self._get_resources('qplot', qplot_config)
@@ -639,10 +649,10 @@ class Sweeper(object):
         rplot_cmd += (' --title {0} '.format(rplot_title))
 
       # check plot settings
-      if self._ymin is not None:
-        rplot_cmd += (' --ymin {0}'.format(self._ymin))
-      if self._ymax is not None:
-        rplot_cmd += (' --ymax {0}'.format(self._ymax))
+      if self._rate_ymin is not None:
+        rplot_cmd += (' --ymin {0}'.format(self._rate_ymin))
+      if self._rate_ymax is not None:
+        rplot_cmd += (' --ymax {0}'.format(self._rate_ymax))
 
       # create task
       rplot_task = taskrun.ProcessTask(tm_var, rplot_name, rplot_cmd)
@@ -679,12 +689,12 @@ class Sweeper(object):
         lplot_cmd += (' --title {0} '.format(lplot_title))
 
       # check plot settings
-      if self._plot_units is not None:
-        lplot_cmd += (' --units {0}'.format(self._plot_units))
-      if self._ymin is not None:
-        lplot_cmd += (' --ymin {0}'.format(self._ymin))
-      if self._ymax is not None:
-        lplot_cmd += (' --ymax {0}'.format(self._ymax))
+      if self._latency_units is not None:
+        lplot_cmd += (' --units {0}'.format(self._latency_units))
+      if self._latency_ymin is not None:
+        lplot_cmd += (' --ymin {0}'.format(self._latency_ymin))
+      if self._latency_ymax is not None:
+        lplot_cmd += (' --ymax {0}'.format(self._latency_ymax))
 
       # add to lplot_cmd the load files- sweep load
       for loads in  self._dim_iter(do_vars=self._load_name):
@@ -741,12 +751,12 @@ class Sweeper(object):
               cplot_cmd += (' --title {0} '.format(cplot_title))
 
             # add plot settings if they exist
-            if self._plot_units is not None:
-              cplot_cmd += (' --units {0}'.format(self._plot_units))
-            if self._ymin is not None:
-              cplot_cmd += (' --ymin {0}'.format(self._ymin))
-            if self._ymax is not None:
-              cplot_cmd += (' --ymax {0}'.format(self._ymax))
+            if self._latency_units is not None:
+              cplot_cmd += (' --units {0}'.format(self._latency_units))
+            if self._latency_ymin is not None:
+              cplot_cmd += (' --ymin {0}'.format(self._latency_ymin))
+            if self._latency_ymax is not None:
+              cplot_cmd += (' --ymax {0}'.format(self._latency_ymax))
 
             # loop through comp variable and loads to add agg files to cmd
             for var_load_config in self._dim_iter(do_vars=[cvar['name'],

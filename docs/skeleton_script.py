@@ -29,29 +29,25 @@ def main(args):
       return {'cpus': 1, 'mem': args.simmem}
     else:
       return {'cpus': 1, 'mem': 3}
+
+  # readme information for README.txt
+  readme = 'This is a skeleton script, duh!'
+
   # ========================================================================== #
   # Sweeper
   # ========================================================================== #
-  """
-  Defaults:
-  Mandatory:
-  supersim_path, settings_path, sslatency_path, out_dir,
-  Predefined:
-  parse_scalar = None, plot_units = None, ymin = None , ymax = None,
-  long_titles = True, plot_style='colon',
-  latency_mode = 'Packet', # 'Packet', 'Message', 'Transaction'
-  sim = True, parse = True, qplot = True, lplot = True, cplot = True,
-  web_viewer = True, get_resources = None
-  """
   s = sssweep.Sweeper(args.supersim_path, args.settings_path,
                       args.sslatency_path, args.out_dir,
-                      parse_scalar=0.001, plot_units='ns',
-                      ymin=0, ymax=500, long_titles=True,
+                      parse_scalar=0.001, latency_units='ns',
+                      latency_ymin=0, latency_ymax=500,
+                      rate_ymin=0, rate_ymax=500,
+                      titles='short',
                       plot_style='colon',
-                      latency_mode='Message',
+                      latency_mode='message',
                       sim=True, parse=True,
-                      qplot=True, lplot=True, cplot=True,
-                      web_viewer=True, get_resources=get_resources)
+                      qplot=True, lplot=True, rplot=True, cplot=True,
+                      web_viewer=True, get_resources=get_resources,
+                      readme=readme)
 
   # ========================================================================== #
   # sweep variables & set commands

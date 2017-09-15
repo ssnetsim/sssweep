@@ -70,14 +70,16 @@ In this section we create the sweeper object as follows:
 
 ```python
 s = sssweep.Sweeper(args.supersim_path, args.settings_path,
-                      args.sslatency_path, args.out_dir,
-                      parse_scalar=0.001, plot_units='ns',
-                      ymin=0, ymax=500, long_titles=True,
-                      plot_style='colon',
-                      latency_mode='Message',
-                      sim=True, parse=True,
-                      qplot=True, lplot=True, cplot=True,
-                      web_viewer=True, get_resources=get_resources)
+                    args.sslatency_path, args.out_dir,
+                    parse_scalar=0.001, latency_units='ns',
+                    latency_ymin=0, ymax=500,
+                    rate_ymin=0, ymax=500,
+                    titles='short',
+                    plot_style='colon',
+                    rate_mode='Message',
+                    sim=True, parse=True,
+                    qplot=True, lplot=True, cplot=True,
+                    web_viewer=True, get_resources=get_resources)
 ```
 
 This is the list of input arguments for Sweeper:
@@ -85,8 +87,10 @@ This is the list of input arguments for Sweeper:
 Mandatory:
 * supersim_path, settings_path, sslatency_path, out_dir,
 Predefined:
-* parse_scalar=None, plot_units=None, ymin=None, ymax=None,
-* long_titles=True, plot_style='colon',
+* parse_scalar=None, latency_units=None,
+* latency_ymin=None, latency_ymax=None,
+* rate_ymin=None, rate_ymax=None,
+* titles='short', plot_style='colon',
 * latency_mode='Packet', # 'Packet', 'Message', 'Transaction'
 * sim=True, parse=True,
 * qplot=True, lplot=True, cplot=True,
@@ -100,25 +104,25 @@ supersim_path, settings_path, sslatency_path, out_dir
 
 Next we define the **plot settings** using the previously set variables of ymin, ymax, as well as the parsing unit and units for latency plot.
 ```python
-parse_scalar=None, plot_units=None, ymin=None, ymax=None
+parse_scalar=None, latency_units=None, latency_ymin=None, latency_ymax=None, rate_ymin=None, rate_ymax=None,
 ```
 
 Additional plot settings exist for plot titles. In sssweep, you can enable long titles which use the full length of the variable name or you can enable short titles (`long_titles=False`) to use the shortnames on the titles. As well with the variable plot_style you have two options for dividers "colon" or "equal". You can use any combination of these two settings of `long_titles` and `plot_style` to define you preferred title format.
 
 Here are some examples:
-- [_long_titles=True, plot_style='colon'_] Load vs. Latency (TrafficPattern: UR, RoutingAlgorithm: AD)
-- [_long_titles=True, plot_style='equal'_] Load vs. Latency (TrafficPattern=UR RoutingAlgorithm=AD)
-- [_long_titles=False, plot_style='colon'_] LvL (TP: UR, RA: AD)
-- [_long_titles=False, plot_style='equal'_] LvL (TP=UR RA=AD)
+- [_titles='long', plot_style='colon'_] Load vs. Latency (TrafficPattern: UR, RoutingAlgorithm: AD)
+- [_titles='long', plot_style='equal'_] Load vs. Latency (TrafficPattern=UR RoutingAlgorithm=AD)
+- [_titles='short', plot_style='colon'_] LvL (TP: UR, RA: AD)
+- [_titles='short', plot_style='equal'_] LvL (TP=UR RA=AD)
 
 Next, you can define the **latency mode** with either 'Packet', 'Message' or 'Transaction' latency data:
 ```python
 latency_mode='Packet', # 'Packet', 'Message', 'Transaction'
 ```
 
-Further, sssweep gives you the flexability to enable or disable the execution of the **simulation, parsing, lplot, cplot, qplot or web_viewer**.
+Further, sssweep gives you the flexability to enable or disable the execution of the **simulation, parsing, qplot, lplot, rplot, cplot, or web_viewer**.
 ```python
-sim=True, parse=True, qplot=True, lplot=True, cplot=True, web_viewer=True
+sim=True, parse=True, qplot=True, lplot=True, rplot=True, cplot=True, web_viewer=True
 ```
 
 The last argument gets memory resources for the simulation, which needs a function pointer to the resources function defined in the TaskRun section.
