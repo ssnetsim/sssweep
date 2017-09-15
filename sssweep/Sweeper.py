@@ -225,19 +225,12 @@ class Sweeper(object):
     # verify unique values
     assert len(values) == len(set(values)), 'Duplicate value detected'
 
-    # checks to enable dict format for web display
-    if isinstance(values, dict):
-      dictvals = values
-    else:
-      dictvals = None
-
     # check more than 1 value was given for variable
     assert len(values) > 0
 
     # build the variable
     configall = {'name': name, 'short_name': short_name, 'values': list(values),
-                 'command': set_command, 'compare': compare,
-                 'values_dic': dictvals}
+                 'command': set_command, 'compare': compare}
     # add the variable
     self._variables.append(configall)
 

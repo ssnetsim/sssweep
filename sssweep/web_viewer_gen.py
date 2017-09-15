@@ -100,7 +100,7 @@ h2 {font-size: 20px !important; text-align:center;}
                flex: 1 5%;
                -webkit-order:1;
                order:1;}
-    .main    { order: 2; flex:6;}
+    .main    { order: 2; flex:12;}
 
 }
 
@@ -110,6 +110,12 @@ h2 {font-size: 20px !important; text-align:center;}
     .logo img {height:40px;}
     .aside-1 {border: none; border-bottom: thin solid #C6C9CA;}
     .plotImg {height: auto; width:auto;}
+    br {
+        content: ' '
+    }
+    br:after {
+        content: ' '
+    }
 }"""
   return css
 
@@ -135,7 +141,7 @@ def get_html_top(self, files):
          </div>
          <!-- --------------------------------- -->
          <div id="mode">
-           Plot Type:
+           Plot Type:<br>
            <select id="mode_sel" name="mode_select" onchange="showDiv(this)">
              <option disabled selected value> -- select an option -- </option>
              <option value="lplot">lplot</option>
@@ -201,7 +207,7 @@ def get_html_dyn(self, load_latency_stats):
   cmp_option = ""
   cmp_sel_top = ("""\
 <div style ='display:none;' id="{0}">
-<p>Compare Variable:
+<p>Compare Variable:<br>
 <select id="{0}_sel" onchange="CplotDivs(this)">
 """.format(self._id_cmp))
   # select an option
@@ -213,7 +219,7 @@ def get_html_dyn(self, load_latency_stats):
   ld_option = ""
   ld_top = ("""\
 <div style ='display:none;' id="{0}">
-<p>Latency Distribution:
+<p>Latency Distribution:<br>
 <select id="{0}_sel" onchange="createName()">
   <option disabled selected value> -- select an option -- </option>
 """.format(self._id_lat_dist))
@@ -230,14 +236,8 @@ def get_html_dyn(self, load_latency_stats):
 
       # options - iterate through values
       select_option = ""
-      if var['values_dic'] is not None: # with dict name ()
-        for val in var['values_dic']:
-          select_option += ("""\
-<option value="{0}" selected="true" disabled="disabled">{1} ({0})</option>
-""".format(val, var['values_dic'][val]))
-      else: # no dict name
-        for val in var['values']:
-          select_option += ("""\
+      for val in var['values']:
+        select_option += ("""\
 <option value="{0}" selected="true" disabled="disabled">{0}</option>
 """.format(val))
 
@@ -245,7 +245,7 @@ def get_html_dyn(self, load_latency_stats):
     elif len(var['values']) > 1:
       # start of selector with select an option
       select_start = ("""<div style ='display:none;' id="{1}">
-<p>{0}:
+<p>{0}:<br>
 <select id="{1}_sel" onchange="createName()">
   <option disabled selected value> -- select an option -- </option>
 """.format(var['name'],
@@ -253,13 +253,8 @@ def get_html_dyn(self, load_latency_stats):
 
       # options - iterate through values
       select_option = ""
-      if var['values_dic'] is not None: # with dict name ()
-        for val in var['values_dic']:
-          select_option += ("""  <option value="{0}">{1} ({0})</option>
-""".format(val, var['values_dic'][val]))
-      else: # no dict name
-        for val in var['values']:
-          select_option += ("""  <option value="{0}">{0}</option>
+      for val in var['values']:
+        select_option += ("""  <option value="{0}">{0}</option>
 """.format(val))
 
     selector = select_start + select_option + select_end
