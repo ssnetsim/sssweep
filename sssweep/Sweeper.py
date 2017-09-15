@@ -152,7 +152,8 @@ class Sweeper(object):
     self._plots_folder = 'plots'
     self._viewer_folder = 'viewer'
     #readme
-    if readme is not None:
+    self._readme = readme
+    if self._readme is not None:
       readme_f = os.path.join(self._out_dir, 'README.txt')
       with open(readme_f, 'w') as fd_readme:
         print(readme, file=fd_readme)
@@ -796,7 +797,7 @@ class Sweeper(object):
 
     # html
     html_top = get_html_top(self, files)
-    html_bottom = get_html_bottom()
+    html_bottom = get_html_bottom(self)
     html_dyn = get_html_dyn(self, ssplot.LoadLatencyStats.FIELDS)
 
     html_all = html_top + html_dyn + html_bottom
