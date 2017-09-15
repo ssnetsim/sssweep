@@ -144,10 +144,17 @@ def get_html_top(self, files):
            Plot Type:<br>
            <select id="mode_sel" name="mode_select" onchange="showDiv(this)">
              <option disabled selected value> -- select an option -- </option>
-             <option value="lplot">lplot</option>
-             <option value="rplot">rplot</option>
-             <option value="qplot">qplot</option>
 """.format(files['css_in'], files['javascript_in']))
+
+  if self._lplot :
+    html_top += ("""\
+             <option value="lplot">lplot</option>""")
+  if self._rplot :
+    html_top += ("""\
+             <option value="rplot">rplot</option>""")
+  if self._qplot :
+    html_top += ("""\
+             <option value="qplot">qplot</option>""")
 
   if self._comp_var_count == 0:
     html_top2 = """
