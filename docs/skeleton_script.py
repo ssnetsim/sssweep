@@ -37,7 +37,7 @@ def main(args):
   # Sweeper
   # ========================================================================== #
   s = sssweep.Sweeper(args.supersim_path, args.settings_path,
-                      args.sslatency_path, args.out_dir,
+                      args.ssparse_path, args.out_dir,
                       parse_scalar=0.001, latency_units='ns',
                       latency_ymin=0, latency_ymax=500,
                       rate_ymin=0, rate_ymax=500,
@@ -92,11 +92,11 @@ def main(args):
 if __name__ == '__main__':
   ap = argparse.ArgumentParser()
   ap.add_argument('supersim_path',
-                  help='location of supersim bin')
+                  help='location of supersim binary')
   ap.add_argument('settings_path',
                   help='the JSON settings file')
-  ap.add_argument('sslatency_path',
-                  help='location of sslatency bin')
+  ap.add_argument('ssparse_path',
+                  help='location of ssparse binary')
   ap.add_argument('out_dir',
                   help='location of output files directory')
 

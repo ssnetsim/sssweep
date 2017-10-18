@@ -39,7 +39,7 @@ from .web_viewer_gen import *
 
 class Sweeper(object):
 
-  def __init__(self, supersim_path, settings_path, sslatency_path, out_dir,
+  def __init__(self, supersim_path, settings_path, ssparse_path, out_dir,
                parse_scalar=None, parse_filters=[], latency_units=None,
                latency_ymin=None, latency_ymax=None,
                rate_ymin=None, rate_ymax=None,
@@ -56,7 +56,7 @@ class Sweeper(object):
     Args:
       supersim_path  : path to supersim bin
       settings_path  : path to settings file
-      sslatency_path : path to sslatency bin
+      ssparse_path   : path to ssparse bin
       out_dir        : location of output files directory
       parse_scalar   : latency scalar for parsing
       latency_units  : unit of latency for plots
@@ -80,7 +80,7 @@ class Sweeper(object):
     self._supersim_path = os.path.abspath(os.path.expanduser(supersim_path))
     self._out_dir = os.path.abspath(os.path.expanduser(out_dir))
     self._settings_path = os.path.abspath(os.path.expanduser(settings_path))
-    self._sslatency_path = os.path.abspath(os.path.expanduser(sslatency_path))
+    self._ssparse_path = os.path.abspath(os.path.expanduser(ssparse_path))
 
     # plot settings
     self._parse_scalar = parse_scalar
@@ -135,9 +135,9 @@ class Sweeper(object):
     if not os.path.isfile(self._supersim_path):
       self._error('{0} does not exist'.format(self._supersim_path))
 
-    # ensure the sslatency bin exists
-    if not os.path.isfile(self._sslatency_path):
-      self._error('{0} does not exist'.format(self._sslatency_path))
+    # ensure the ssparse bin exists
+    if not os.path.isfile(self._ssparse_path):
+      self._error('{0} does not exist'.format(self._ssparse_path))
 
     # ensure outdir exists, if not make it
     if not os.path.isdir(self._out_dir):
@@ -567,7 +567,7 @@ class Sweeper(object):
       parse_name = 'parse_{0}'.format(id_task)
       # parse cmd
       parse_cmd = '{0} -{1} {2} -a {3} {4}'.format(
-        self._sslatency_path,
+        self._ssparse_path,
         self._latency_mode[:1].lower(),
         files['latency_csv'],
         files['aggregate_csv'],

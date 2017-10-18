@@ -1,12 +1,12 @@
-# sssweep
+# SSSweep
 
 ## Summary
-sssweep is a flexible and easy-to-use python package to automatically perform supersim simulations with one to many sweeping variables. sssweep allows the user to easily add as many simulation variables as wanted, where each simulation variable can have one or many values.
+SSSweep is a flexible and easy-to-use python package to automatically perform supersim simulations with one to many sweeping variables. SSSweep allows the user to easily add as many simulation variables as wanted, where each simulation variable can have one or many values.
 
-As the number of simulations increase so does the number of plots generated, sssweep introduces a convenient feature to help you visualize results, the sssweep webviewer. The sssweep webviewer is automatically generated based on your simulation parameters. The webviewer lets you share your results from the computer where the simulation was performed to other computers and with other peers, by only launching a local python server, removing the need to copy images across computers and email attachements.
+As the number of simulations increase so does the number of plots generated. SSSweep introduces a convenient feature to help you visualize results, the SSSweep webviewer. The SSSweep webviewer is automatically generated based on your simulation parameters. The webviewer lets you share your results from the computer where the simulation was performed to other computers and with other peers, by only launching a local python server, removing the need to copy images across computers and email attachements.
 
 ## Install
-sssweep requires [TaskRun](https://github.com/nicmcd/taskrun) and [SSplot](https://github.com/nicmcd/ssplot) in addition to [SuperSim](https://github.com/HewlettPackard/supersim).
+SSSweep requires [TaskRun](https://github.com/nicmcd/taskrun) and [SSplot](https://github.com/nicmcd/ssplot) in addition to [SuperSim](https://github.com/HewlettPackard/supersim).
 
 #### Install globally:
 ```

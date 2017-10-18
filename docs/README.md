@@ -1,22 +1,22 @@
-# sssweep - Easy Simulations with sssweep
+# SSSweep - Easy Simulations with SSSweep
 
-The sssweep tool is intended to aid analysis of interconnect networks performed with the [SuperSim][] simulator. When performing network analysis there are immense number of variables to study, such as multiple workloads, network configurations, injection rates, routing algorithms, among others. These studies lead to thousands of results or plots to analyse and strenuous simulation setup. Sssweep solves these two problems by enabling a flexible and easy-to-use system to configure, run, parse and plot simulations with any number of variables and configurations, as well as auto-creating a web-viewer to view and study the results from your simulation that is tailored to the specific parameters of your simulations.
-To understand sssweep's power, we will do a detailed walk through the components of sssweep with a skeleton running script.
+The SSSweep tool is intended to aid analysis of interconnect networks performed with the [SuperSim][] simulator. When performing network analysis there are immense number of variables to study, such as multiple workloads, network configurations, injection rates, routing algorithms, among others. These studies lead to thousands of results or plots to analyse and strenuous simulation setup. SSSweep solves these two problems by enabling a flexible and easy-to-use system to configure, run, parse and plot simulations with any number of variables and configurations, as well as auto-creating a web-viewer to view and study the results from your simulation that is tailored to the specific parameters of your simulations.
+To understand SSSweep's power, we will do a detailed walk through the components of SSSweep with a skeleton running script.
 
-## How to run sssweep
-For this tutorial we provide a [skeleton][] script provides a flexible setup where you can input the path to your SuperSim, SSLatency binaries, as well as the load settings.
-To run the sssweep simulations, using the setup of the skeleton script, you can use the following command and modify the paths to your [SuperSim][] and [SSLatency][] binary and the name of the output folder.
+## How to run SSSweep
+For this tutorial we provide a [skeleton][] script provides a flexible setup where you can input the path to your SuperSim, SSParse binaries, as well as the load settings.
+To run the SSSweep simulations, using the setup of the skeleton script, you can use the following command and modify the paths to your [SuperSim][] and [SSParse][] binary and the name of the output folder.
 
 Run command
 ```sh
-./skeleton_script.py [supersim bin] [JSON settings] [sslatency bin] [out dir] [start] [stop] [step]
+./skeleton_script.py [supersim bin] [JSON settings] [ssparse bin] [out dir] [start] [stop] [step]
 ```
 Here is the list of input arguments used by skeleton_script.py
 
 Mandatory:
 1. 'supersimPath' = 'location of SuperSim bin'
 2. 'settingsPath' = 'the JSON settings file'
-3. 'sslatencyPath'= 'location of sslatency bin'
+3. 'ssparsePath'= 'location of ssparse bin'
 4. 'outdir'= 'location of output files directory'
 5. 'start'='load start'
 6. 'stop'= 'load stop'
@@ -53,8 +53,8 @@ After selecting a plot type, the appropriate drop-down selectors will appear in 
 The filename is displayed at the bottom of the selectors, if the filename is red, the requested figure does not exist. Once all the options are selected the plot is displayed automatically.
 
 
-## How does sssweep work - walk through
-Now let's walk through the [skeleton][] script to get a better understanding of how sssweep works.
+## How does SSSweep work - walk through
+Now let's walk through the [skeleton][] script to get a better understanding of how SSSweep works.
 
 ```sh
 emacs skeleton_script.py
@@ -70,7 +70,7 @@ In this section we create the sweeper object as follows:
 
 ```python
 s = sssweep.Sweeper(args.supersim_path, args.settings_path,
-                    args.sslatency_path, args.out_dir,
+                    args.ssparse_path, args.out_dir,
                     parse_scalar=0.001, latency_units='ns',
                     latency_ymin=0, ymax=500,
                     rate_ymin=0, ymax=500,
@@ -85,7 +85,7 @@ s = sssweep.Sweeper(args.supersim_path, args.settings_path,
 This is the list of input arguments for Sweeper:
 
 Mandatory:
-* supersim_path, settings_path, sslatency_path, out_dir,
+* supersim_path, settings_path, ssparse_path, out_dir,
 Predefined:
 * parse_scalar=None, latency_units=None,
 * latency_ymin=None, latency_ymax=None,
@@ -99,7 +99,7 @@ Predefined:
 
 First we set the **mandatory arguments** that are the input files and output directory in the following order:
 ```python
-supersim_path, settings_path, sslatency_path, out_dir
+supersim_path, settings_path, ssparse_path, out_dir
 ```
 
 Next we define the **plot settings** using the previously set variables of ymin, ymax, as well as the parsing unit and units for latency plot.
@@ -107,7 +107,7 @@ Next we define the **plot settings** using the previously set variables of ymin,
 parse_scalar=None, latency_units=None, latency_ymin=None, latency_ymax=None, rate_ymin=None, rate_ymax=None,
 ```
 
-Additional plot settings exist for plot titles. In sssweep, you can enable long titles which use the full length of the variable name or you can enable short titles (`long_titles=False`) to use the shortnames on the titles. As well with the variable plot_style you have two options for dividers "colon" or "equal". You can use any combination of these two settings of `long_titles` and `plot_style` to define you preferred title format.
+Additional plot settings exist for plot titles. In SSSweep, you can enable long titles which use the full length of the variable name or you can enable short titles (`long_titles=False`) to use the shortnames on the titles. As well with the variable plot_style you have two options for dividers "colon" or "equal". You can use any combination of these two settings of `long_titles` and `plot_style` to define you preferred title format.
 
 Here are some examples:
 - [_titles='long', plot_style='colon'_] Load vs. Latency (TrafficPattern: UR, RoutingAlgorithm: AD)
@@ -120,7 +120,7 @@ Next, you can define the **latency mode** with either 'Packet', 'Message' or 'Tr
 latency_mode='Packet', # 'Packet', 'Message', 'Transaction'
 ```
 
-Further, sssweep gives you the flexability to enable or disable the execution of the **simulation, parsing, qplot, lplot, rplot, cplot, or web_viewer**.
+Further, SSSweep gives you the flexability to enable or disable the execution of the **simulation, parsing, qplot, lplot, rplot, cplot, or web_viewer**.
 ```python
 sim=True, parse=True, qplot=True, lplot=True, rplot=True, cplot=True, web_viewer=True
 ```
@@ -130,9 +130,9 @@ The last argument gets memory resources for the simulation, which needs a functi
  get_resources=get_resources
 ```
 
-### sweep variables and set commands
+### Sweep variables and set commands
 
-A key benefit to sssweep is the easiness to add multiple simulation variables. In the next section of the [skeleton][] code, the simulation variables are created along with their associated function that defines the commands to set the variables in the JSON file.
+A key benefit to SSSweep is the easiness to add multiple simulation variables. In the next section of the [skeleton][] code, the simulation variables are created along with their associated function that defines the commands to set the variables in the JSON file.
 
 Simulation variables can be defined in a dictionary format or a list of strings. Note that when variables are defined in dictionary format the dictionary key is used in the filename.
 ``` python
@@ -168,7 +168,7 @@ The load variable is defined differently from the other simulation variables. We
 
 All the set command functions use two input arguments. The first argument stands for one instance of the sweep variable, e.g. 'UR': 'uniform_random' and the second 'config' (generated by the sweeper) contains all the sweep variables for the current simulation run. The config is provided in case the set command requires to use the value of any of the other sweep variables of the current instance of the simulation.
 
-### add variables
+### Adding variables
 
 Now that all the simulation variables and their respective set command functions have been defined, we can add the variables to the sweeper object.
 Note, a variable can be defined above but won't be considered for simulation until it is added to the sweeper object. To add a variable we use the following command:
@@ -184,7 +184,7 @@ s.addLoads(name, shortName, start, stop, step, setCommand)
 ```
 Note that the add load variable command (`addLoads`) is different from the previous add variable command. The addLoads function takes as input the following arguments: `name, shortName, start, stop, step, setCommand` where name and short name represent the variable name in long and short format respectively. The start, stop and step give the load parameters to the sweeper object to generate the simulation loads. Finally the setCommand is the function name to the setting command function previously defined.
 
-### run tasks
+### Running tasks
 
 Now that all the variables have been defined and added to our sweeper object, we can auto-generate and run the tasks. We first tell our sweeper object to create the tasks using the predefined task manager `tm` and after we set the task manager to run these tasks. This is performed by the following code.
 
@@ -195,10 +195,10 @@ Now that all the variables have been defined and added to our sweeper object, we
   # run the tasks
   tm.run_tasks()
 ```
-This concludes the walkthrough of sssweep, if you have any questions or recommendations please let us know.
+This concludes the walkthrough of SSSweep, if you have any questions or recommendations please let us know.
 
 [TaskRun]: https://github.com/nicmcd/taskrun
-[SSLatency]: https://github.com/nicmcd/sslatency
+[SSParse]: https://github.com/nicmcd/ssparse
 [SSPlot]: https://github.com/nicmcd/ssplot
 [skeleton]: skeleton_script.py
 [SuperSim]: https://github.com/HewlettPackard/supersim
