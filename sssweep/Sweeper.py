@@ -43,7 +43,8 @@ class Sweeper(object):
                parse_scalar=None, parse_filters=[], latency_units=None,
                latency_ymin=None, latency_ymax=None,
                rate_ymin=None, rate_ymax=None,
-               titles='short', plot_style='colon',
+               plot_style=None, plot_size=None,
+               titles='short', title_style='colon',
                latency_mode='packet',
                sim=True, parse=True,
                qplot=True, lplot=True, rplot=True, cplot=True,
@@ -64,8 +65,10 @@ class Sweeper(object):
       latency_ymax   : ymax for latency plots
       rate_ymin      : ymin for rate plots
       rate_ymax      : ymax for rate plots
+      plot_style     : styling of plots (colormap, line styles)
+      plot_size      : size of plot e.g. 16x10
       titles         : plot titles format (short, long, off)
-      plot_style     : style of plot titles (colon : or equal = )
+      title_style    : style of plot titles (colon : or equal = )
       latency_mode   : 'packet-header', 'packet', 'message', 'transaction'
       sim, parse     : bools to enable/disable sim and parsing
       qplot          : enable/disable quad plots
@@ -90,10 +93,14 @@ class Sweeper(object):
     self._latency_ymax = latency_ymax
     self._rate_ymin = rate_ymin
     self._rate_ymax = rate_ymax
+    if plot_style is not None:
+      assert plot_style in ['rainbow', 'rainbow-dots', 'black', 'inferno', 'inferno-dots', 'inferno-markers']
+    self._plot_style = plot_style
+    self._plot_size = plot_size # 16x10
     assert titles in ['long', 'short', 'off']
     self._titles = titles
-    assert plot_style in ['colon', 'equal']
-    self._plot_style = plot_style
+    assert title_style in ['colon', 'equal']
+    self._title_style = title_style
     assert latency_mode in ['packet-header', 'packet', 'message', 'transaction']
     self._latency_mode = latency_mode.split('-')[0]  # this ignores '-header'
     self._header_latency = latency_mode == 'packet-header'
@@ -152,7 +159,8 @@ class Sweeper(object):
     self._plots_folder = 'plots'
     self._viewer_folder = 'viewer'
     #readme
-    if readme is not None:
+    self._readme = readme
+    if self._readme is not None:
       readme_f = os.path.join(self._out_dir, 'README.txt')
       with open(readme_f, 'w') as fd_readme:
         print(readme, file=fd_readme)
@@ -353,7 +361,7 @@ class Sweeper(object):
      RA Cmp (TP: UR [Mean])
     """
 
-    if self._plot_style is 'colon':
+    if self._title_style is 'colon':
       separ = ': '
       delim = ', '
     else:
@@ -604,12 +612,16 @@ class Sweeper(object):
         files['latency_csv'],
         files['qplot_png'])
 
+      # plot settings
       if self._titles != 'off':
         qplot_title = self._make_title(qplot_config, 'qplot')
         qplot_cmd += (' --title {0} '.format(qplot_title))
-
       if self._latency_units is not None:
         qplot_cmd += (' --units {0} '.format(self._latency_units))
+      if self._plot_size is not None:
+        qplot_cmd += (' --size {0} '.format(self._plot_size))
+
+      # create tasks
       qplot_task = taskrun.ProcessTask(tm_var, qplot_name, qplot_cmd)
       if self._get_resources is not None:
         qplot_task.resources = self._get_resources('qplot', qplot_config)
@@ -646,6 +658,10 @@ class Sweeper(object):
         rplot_cmd += (' --ymin {0}'.format(self._rate_ymin))
       if self._rate_ymax is not None:
         rplot_cmd += (' --ymax {0}'.format(self._rate_ymax))
+      if self._plot_size is not None:
+        rplot_cmd += (' --size {0} '.format(self._plot_size))
+      if self._plot_style is not None:
+        rplot_cmd += (' --style {0} '.format(self._plot_style))
 
       # create task
       rplot_task = taskrun.ProcessTask(tm_var, rplot_name, rplot_cmd)
@@ -688,12 +704,17 @@ class Sweeper(object):
         lplot_cmd += (' --ymin {0}'.format(self._latency_ymin))
       if self._latency_ymax is not None:
         lplot_cmd += (' --ymax {0}'.format(self._latency_ymax))
+      if self._plot_size is not None:
+        lplot_cmd += (' --size {0} '.format(self._plot_size))
+      if self._plot_style is not None:
+        lplot_cmd += (' --style {0} '.format(self._plot_style))
 
       # add to lplot_cmd the load files- sweep load
       for loads in  self._dim_iter(do_vars=self._load_name):
         id_task2 = self._make_id(lplot_config, extra=self._make_id(loads))
         files2 = self._get_files(id_task2)
         lplot_cmd += ' {0}'.format(files2['aggregate_csv'])
+
       # create task
       lplot_task = taskrun.ProcessTask(tm_var, lplot_name, lplot_cmd)
       if self._get_resources is not None:
@@ -750,6 +771,10 @@ class Sweeper(object):
               cplot_cmd += (' --ymin {0}'.format(self._latency_ymin))
             if self._latency_ymax is not None:
               cplot_cmd += (' --ymax {0}'.format(self._latency_ymax))
+            if self._plot_size is not None:
+              cplot_cmd += (' --size {0} '.format(self._plot_size))
+            if self._plot_style is not None:
+              cplot_cmd += (' --style {0} '.format(self._plot_style))
 
             # loop through comp variable and loads to add agg files to cmd
             for var_load_config in self._dim_iter(do_vars=[cvar['name'],
@@ -763,6 +788,7 @@ class Sweeper(object):
             for var_config in self._dim_iter(do_vars=cvar['name']):
               for var in var_config:
                 cplot_cmd += ' --label "{0}"'.format(var['value'])
+
             # create task
             cplot_task = taskrun.ProcessTask(tm_var, cplot_name, cplot_cmd)
             if self._get_resources is not None:
@@ -796,7 +822,7 @@ class Sweeper(object):
 
     # html
     html_top = get_html_top(self, files)
-    html_bottom = get_html_bottom()
+    html_bottom = get_html_bottom(self)
     html_dyn = get_html_dyn(self, ssplot.LoadLatencyStats.FIELDS)
 
     html_all = html_top + html_dyn + html_bottom

@@ -176,7 +176,7 @@ def get_html_top(self, files):
   return html_top + html_top2
 
 
-def get_html_bottom():
+def get_html_bottom(self):
   html_bottom = """\
 <!-- --------------------------------- -->
     <div id="settings" style="display:none">
@@ -188,6 +188,13 @@ def get_html_bottom():
     </p>
     </div>
     <input id="cachingOff" type="checkbox" name="cachingoff" onclick="cashingfunc()"/> Bypass cache [Debug Mode] <br>
+"""
+  if self._readme is not None:
+    html_bottom += """\
+    <p> <a href="../README.txt" target="_blank">README</a> </p>
+"""
+
+  html_bottom2 = """\
   </div>
 </aside>
 <!-- ==================================================================- -->
@@ -198,7 +205,7 @@ def get_html_bottom():
 </div>
 </body>
 </html>"""
-  return html_bottom
+  return html_bottom + html_bottom2
 
 
 def get_html_dyn(self, load_latency_stats):
