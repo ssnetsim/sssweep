@@ -28,6 +28,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 """
+import ssplot
+
 # css
 def get_css():
   css = """\
@@ -40,10 +42,12 @@ html, body, .viewport {
 
 html *
 {
-    font-family: Arial, Helvetica, sans-serif !important;
+    font-family: Metric, Arial, Helvetica, sans-serif !important;
     font-size: 14px;
 }
-
+p {
+  word-break: break-all;
+}
 img {
     image-rendering: -moz-crisp-edges;         /* Firefox */
     image-rendering:   -o-crisp-edges;         /* Opera */
@@ -76,14 +80,15 @@ img {
 
 h2 {font-size: 20px !important; text-align:center;}
 
-.logo img { height:45px;}
+.logo img {height:45px;}
 
 
 .main {text-align: center;}
 
 .aside-1 {
-    border-right: thin solid #C6C9CA;
-    background: #eee;
+  border-right: medium solid #614767;/* #C6C9CA;*/
+  background: #fff; /*#eee*/
+  /*background: #425563; color: #fff;*/
 }
 
 .plotImg {
@@ -126,8 +131,10 @@ def get_html_top(self, files):
 <html>
 <head>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <link rel="icon" type="image/png" href="https://www.hotplugs.co.uk/shop/media/ecom/cat/hpebox.png">
   <link rel="stylesheet" href="{0}">
   <script src="{1}"></script>
+  <title>SuperSim Sweep</title>
 </head>
 <body>
 <div class="wrapper">
@@ -140,41 +147,34 @@ def get_html_top(self, files):
            <h2>SuperSim Plot Viewer</h2>
          </div>
          <!-- --------------------------------- -->
-         <div id="mode">
-           Plot Type:<br>
+         <div id="mode" style="padding-bottom:5px">
+           Plot:<br>
            <select id="mode_sel" name="mode_select" onchange="showDiv(this)">
              <option disabled selected value> -- select an option -- </option>
 """.format(files['css_in'], files['javascript_in']))
+  d = ssplot.CommandLine.all_names()
 
-  if self._lplot :
-    html_top += ("""\
-             <option value="lplot">lplot</option>""")
-  if self._rplot :
-    html_top += ("""\
-             <option value="rplot">rplot</option>""")
-  if self._qplot :
-    html_top += ("""\
-             <option value="qplot">qplot</option>""")
-
-  if self._comp_var_count == 0:
-    html_top2 = """
+  for plot_type, filter_name in sorted(self._plots.keys(), key=lambda x: x[1]):
+    for pt in d:
+      if plot_type in d[pt]:
+        plot_name = d[pt][1]
+        break
+    if plot_type != "load-latency-compare" :
+      html_top += ("""\
+             <option value="{0}">[{1}] {2}</option>
+      """.format(plot_name, filter_name, plot_type))
+    elif self._comp_var_count != 0:
+      html_top += ("""\
+      <option value="{0}">[{1}] {2}</option>
+      """.format(plot_name, filter_name, plot_type))
+  html_top_end = """
            </select>
          </div>
          <hr>
 <!-- --------------------------------- -->
   <div id="options">
 """
-  else:
-    html_top2 = """\
-             <option value="cplot">cplot</option>
-           </select>
-         </div>
-         <hr>
-<!-- --------------------------------- -->
-  <div id="options">
-"""
-  return html_top + html_top2
-
+  return html_top + html_top_end
 
 def get_html_bottom(self):
   html_bottom = """\
@@ -330,7 +330,7 @@ document.onreadystatechange=function(){
 """).format(self._id_lat_dist, self._id_cmp)
 
   bottom = ("""\
-if (mode == "cplot") {{
+if (mode == "loadlatcomp") {{
     document.getElementById('{0}').style.display = "block";
     if ({0}_val) {{
       c = document.getElementById('{0}_sel');
@@ -355,30 +355,34 @@ def get_show_div(self):
   top = """function showDiv(elem){
     document.getElementById("sim_log").style.display = "none";
 """
-  qplot_top = """\
-  if(elem.value == "qplot") {{
+  load_var_top = """\
+  if(elem.value == "latpdf"
+|| elem.value == "latcdf"
+|| elem.value == "latperc"
+|| elem.value == "timelatscat"
+|| elem.value == "timepermin"
+|| elem.value == "timeavehops"
+|| elem.value == "timelat" ) {{
     // no comp no loaddist
     document.getElementById('{0}').style.display = "none";
     document.getElementById('{1}').style.display = "none";
     document.getElementById("sim_log").style.display = "block";
 """.format(self._id_cmp, self._id_lat_dist)
 
-  lplot_top = """\
-  }} else if (elem.value == "lplot") {{
+  var_only_top = """\
+  }} else if (elem.value == "loadlat"
+|| elem.value == "loadpermin"
+|| elem.value == "loadavehops"
+|| elem.value == "loadrateper"
+|| elem.value == "loadrate" ) {{
     // no load no comp no loaddist
     document.getElementById('{0}').style.display = "none";
     document.getElementById('{1}').style.display = "none";
 """.format(self._id_cmp, self._id_lat_dist)
-
-  rplot_top = """\
-  }} else if (elem.value == "rplot") {{
-    // no load no comp no loaddist
-    document.getElementById('{0}').style.display = "none";
-    document.getElementById('{1}').style.display = "none";
-""".format(self._id_cmp, self._id_lat_dist)
+# add no load
 
   cplot_top = """\
-  }} else if (elem.value == "cplot") {{
+  }} else if (elem.value == "loadlatcomp") {{
     // only cmp selector
     document.getElementById('{0}').style.display = "block";
     document.getElementById('{0}').getElementsByTagName('option')[0].selected =
@@ -392,15 +396,17 @@ createName();
 }
 """
   #--------------------------------------------#
-  qplot_dyn = ""
-  lplot_dyn = ""
-  rplot_dyn = ""
-  cplot_dyn = ""
   id_one = ""
+  cplot_dyn = ""
+  load_var_dyn = ""
+  var_only_dyn = ""
   for var in self._variables:
     # many options
     if len(var['values']) > 1:
-      qplot_dyn += """\
+      load_var_dyn += """\
+    document.getElementById('{0}').style.display = "block";
+""".format(var['short_name'])
+      var_only_dyn += """\
     document.getElementById('{0}').style.display = "block";
 """.format(var['short_name'])
 
@@ -408,13 +414,13 @@ createName();
     document.getElementById('{0}').style.display = "none";
 """.format(var['short_name'])
 
-      # lplot has no load selector
+      # var_only has no load selector
       if var['name'] == self._load_name:
-        lplot_dyn += """\
+        var_only_dyn += """\
     document.getElementById('{0}').style.display = "none";
 """.format(var['short_name'])
       else:
-        lplot_dyn += """\
+        var_only_dyn += """\
     document.getElementById('{0}').style.display = "block";
 """.format(var['short_name'])
 
@@ -424,7 +430,10 @@ createName();
    document.getElementById('{0}').style.color = "blue";
 """.format(var['short_name'])
 
-      qplot_dyn += """\
+      load_var_dyn += """\
+    document.getElementById('{0}').style.display = "none";
+""".format(var['short_name'])
+      var_only_dyn += """\
     document.getElementById('{0}').style.display = "none";
 """.format(var['short_name'])
 
@@ -432,20 +441,18 @@ createName();
     document.getElementById('{0}').style.display = "none";
 """.format(var['short_name'])
 
-      # lplot has no load selector
+      # var_only has no load selector (if not needed)
       if var['name'] == self._load_name:
-        lplot_dyn += """\
+        var_only_dyn += """\
     document.getElementById('{0}').style.display = "none";
 """.format(var['short_name'])
       else:
-        lplot_dyn += """\
+        var_only_dyn += """\
     document.getElementById('{0}').style.display = "none";
 """.format(var['short_name'])
 
-  rplot_dyn = lplot_dyn
-  return top + id_one + qplot_top + qplot_dyn + lplot_top + lplot_dyn + \
-rplot_top + rplot_dyn + cplot_top + cplot_dyn + bottom
-
+  return top + id_one + load_var_top + load_var_dyn + var_only_top + \
+    var_only_dyn + cplot_top + cplot_dyn + bottom
 
 def get_cplot_divs(self):
   top = """\
@@ -482,12 +489,13 @@ def get_create_name():
   create_name = """\
 function noImgFile() {
   document.getElementById("plot_name").style.color = "red";
-  document.getElementById('plot').src = '';
+  document.getElementById("plot").style.display='none';
   document.getElementById("sim_log_a").style.color = "red";
 }
 
 function createName() {
   document.getElementById("settings").style.display = "block";
+  document.getElementById("plot").style.display="block";
   document.getElementById("plot_name").innerHTML = composeName();
   document.getElementById("plot_name").style.color = "black";
 
@@ -497,11 +505,18 @@ function createName() {
     document.getElementById('plot').src = '../plots/' + composeName();
   }
 
-  addURLparams();
-  if (document.getElementById("mode_sel").value == "qplot") {
+  if (document.getElementById("mode_sel").value == "latpdf"
+|| document.getElementById("mode_sel").value == "latcdf"
+|| document.getElementById("mode_sel").value == "latperc"
+|| document.getElementById("mode_sel").value == "timelatscat"
+|| document.getElementById("mode_sel").value == "timepermin"
+|| document.getElementById("mode_sel").value == "timeavehops"
+|| document.getElementById("mode_sel").value == "timelat"
+) {
     document.getElementById("sim_log_a").style.color = "blue";
     document.getElementById("sim_log_a").href = '../logs/' + getSimLog();
   }
+  addURLparams();
 }
 """
   return create_name
@@ -549,29 +564,45 @@ function getSimLog() {
 def get_compose_name(self):
   top = """\
 function composeName() {
-  var m = document.getElementById("mode_sel").value;
+  plot_select = document.getElementById("mode_sel")
+  var m = plot_select.value;
+  var f = plot_select.options[plot_select.selectedIndex].text;
+  f = f.split('[')[1].split(']')[0];
+
 """
   bottom = """\
   // get displayed div values
   var y = "";
-  for (var i = 0; i < vars_div_id.length; i++) {
+  var cmp_var = ""
+  for (var i = 0; i < vars_div_id.length; i++) {{
     curr_elem = document.getElementById(vars_div_id[i]);
-    if (curr_elem.style.display == "block") {
-      y += '_'
-      y += document.getElementById(vars_sel_id[i]).value;
-    } else if(curr_elem.style.color == "blue") {
-      if (vars_div_id[i] != 'l') {
+    if (curr_elem.style.display == "block") {{
+       if (vars_div_id[i] != "{0}") {{
+         y += '_'
+         y += document.getElementById(vars_sel_id[i]).value;
+       }} else {{
+        cmp_var = '_' + document.getElementById(vars_sel_id[i]).value;
+       }}
+    }} else if(curr_elem.style.color == "blue") {{
+      if (vars_div_id[i] != 'l') {{
         y += '_'
         y += document.getElementById(vars_sel_id[i]).value;
-      } else if (m == 'qplot') {
+      }} else if (m == "latpdf"
+                 || m == "latcdf"
+                 || m == "latperc"
+                 || m == "timelatscat"
+                 || m == "timepermin"
+                 || m == "timeavehops"
+                 || m == "timelat"
+                 ) {{
         y += '_'
         y += document.getElementById(vars_sel_id[i]).value;
-      }
-    }
-  }
-  return m + y + '.png'
-}
-"""
+      }}
+    }}
+  }}
+  return m + cmp_var + '_' + f + y + '.png'
+}}
+""".format(self._id_cmp)
   # format variables for js
   var_div_id = [] # list of div ids
   var_sel_id = [] # list of selectors ids

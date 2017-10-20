@@ -35,22 +35,16 @@ import os
 import copy
 import ssplot
 import taskrun
+
+#from .Analysis import Analysis
 from .web_viewer_gen import *
 
 class Sweeper(object):
-
-  def __init__(self, supersim_path, settings_path, ssparse_path, out_dir,
-               parse_scalar=None, parse_filters=[], latency_units=None,
-               latency_ymin=None, latency_ymax=None,
-               rate_ymin=None, rate_ymax=None,
-               plot_style=None, plot_size=None,
-               titles='short', title_style='colon',
-               latency_mode='packet',
-               sim=True, parse=True,
-               qplot=True, lplot=True, rplot=True, cplot=True,
-               web_viewer=True,
-               get_resources=None,
-               readme=None):
+  def __init__(self,
+               supersim_path, settings_path, ssparse_path,
+               transient_path, create_task_func, out_dir,
+               parse_scalar=None, latency_units=None,
+               sim=True, viewer=True, readme=None):
     """
     Constructs a Sweeper object
 
@@ -58,62 +52,29 @@ class Sweeper(object):
       supersim_path  : path to supersim bin
       settings_path  : path to settings file
       ssparse_path   : path to ssparse bin
+      create_task_func: pointer to create task function
       out_dir        : location of output files directory
-      parse_scalar   : latency scalar for parsing
-      latency_units  : unit of latency for plots
-      latency_ymin   : ymin for latency plots
-      latency_ymax   : ymax for latency plots
-      rate_ymin      : ymin for rate plots
-      rate_ymax      : ymax for rate plots
-      plot_style     : styling of plots (colormap, line styles)
-      plot_size      : size of plot e.g. 16x10
-      titles         : plot titles format (short, long, off)
-      title_style    : style of plot titles (colon : or equal = )
-      latency_mode   : 'packet-header', 'packet', 'message', 'transaction'
-      sim, parse     : bools to enable/disable sim and parsing
-      qplot          : enable/disable quad plots
-      lplot          : enable/disable load vs. latency plots
-      rplot          : enable/disable load vs. latency plots
-      cplot          : enable/disable comparison plots
-      web_viewer     : bool to enable/disable web viewer generation
-      get_resources  : pointer to set resource function for tasks
-      readme         : text for readme file
+
+      parse_scalar   : latency scalar for parsing (None)
+      latency_units  : unit of latency for plots (None)
+      sim            : bools to enable/disable sim (True)
+      viewer         : bool to enable/disable web viewer (True)
+      readme         : text for readme file (None)
     """
-    # paths
+    # mandatory
     self._supersim_path = os.path.abspath(os.path.expanduser(supersim_path))
-    self._out_dir = os.path.abspath(os.path.expanduser(out_dir))
     self._settings_path = os.path.abspath(os.path.expanduser(settings_path))
     self._ssparse_path = os.path.abspath(os.path.expanduser(ssparse_path))
+    self._transient_path = os.path.abspath(os.path.expanduser(transient_path))
+    self._create_task_func = create_task_func
+    self._out_dir = os.path.abspath(os.path.expanduser(out_dir))
 
-    # plot settings
+    # settings
     self._parse_scalar = parse_scalar
-    self._parse_filters = parse_filters
     self._latency_units = latency_units
-    self._latency_ymin = latency_ymin
-    self._latency_ymax = latency_ymax
-    self._rate_ymin = rate_ymin
-    self._rate_ymax = rate_ymax
-    if plot_style is not None:
-      assert plot_style in ['rainbow', 'rainbow-dots', 'black', 'inferno', 'inferno-dots', 'inferno-markers']
-    self._plot_style = plot_style
-    self._plot_size = plot_size # 16x10
-    assert titles in ['long', 'short', 'off']
-    self._titles = titles
-    assert title_style in ['colon', 'equal']
-    self._title_style = title_style
-    assert latency_mode in ['packet-header', 'packet', 'message', 'transaction']
-    self._latency_mode = latency_mode.split('-')[0]  # this ignores '-header'
-    self._header_latency = latency_mode == 'packet-header'
-
-    # task activation
     self._sim = sim
-    self._parse = parse
-    self._qplot = qplot
-    self._lplot = lplot
-    self._rplot = rplot
-    self._cplot = cplot
-    self._web_viewer = web_viewer
-    self._get_resources = get_resources
+    self._viewer = viewer
+    self._readme = readme
 
     # load sweep values
     self._start = None
@@ -121,6 +82,10 @@ class Sweeper(object):
     self._step = None
 
     self._variables = []
+    self._parsings = {}
+    self._plots = {}
+    self._all_cmds = []
+    self._all_cmds_file = 'all_cmds.txt'
     self._created = False
     self._load_variable = None
     self._load_name = None
@@ -132,7 +97,8 @@ class Sweeper(object):
 
     # store tasks
     self._sim_tasks = {}
-    self._parse_tasks = {}
+    self._ssparse_tasks = {}
+    self._tparse_tasks = {}
 
     # ensure the settings file exists
     if not os.path.isfile(self._settings_path):
@@ -158,13 +124,12 @@ class Sweeper(object):
     self._logs_folder = 'logs'
     self._plots_folder = 'plots'
     self._viewer_folder = 'viewer'
+
     #readme
-    self._readme = readme
     if self._readme is not None:
       readme_f = os.path.join(self._out_dir, 'README.txt')
       with open(readme_f, 'w') as fd_readme:
         print(readme, file=fd_readme)
-
     # data
     data_f = os.path.join(self._out_dir, self._data_folder)
     if not os.path.isdir(data_f):
@@ -179,7 +144,6 @@ class Sweeper(object):
         os.mkdir(logs_f)
       except:
         self._error('couldn\'t create {0}'.format(logs_f))
-
     # plots
     plots_f = os.path.join(self._out_dir, self._plots_folder)
     if not os.path.isdir(plots_f):
@@ -187,14 +151,13 @@ class Sweeper(object):
         os.mkdir(plots_f)
       except:
         self._error('couldn\'t create {0}'.format(plots_f))
-
-    # web_viewer
-    web_viewer_f = os.path.join(self._out_dir, self._viewer_folder)
-    if not os.path.isdir(web_viewer_f):
+    # viewer
+    viewer_f = os.path.join(self._out_dir, self._viewer_folder)
+    if not os.path.isdir(viewer_f):
       try:
-        os.mkdir(web_viewer_f)
+        os.mkdir(viewer_f)
       except:
-        self._error('couldn\'t create {0}'.format(web_viewer_f))
+        self._error('couldn\'t create {0}'.format(viewer_f))
 
   def add_loads(self, name, short_name, start, stop, step, set_command):
     """
@@ -211,13 +174,121 @@ class Sweeper(object):
              for x_values in range(start, stop+1, step)]
     assert len(loads) > 0
     lconfig = {'name': name, 'short_name': short_name, 'values': list(loads),
-               'command': set_command, 'compare' : False, 'values_dic': None}
+               'command': set_command, 'compare' : False}
     # add the variables
     self._load_variable = lconfig
     self._load_name = name
     self._start = start
     self._stop = stop
     self._step = step
+
+  def add_plot(self, plot_type, filter_name, filters = [],
+               title_format='long-colon', latency_mode='packet',
+               transient_args=None, **plot_settings):
+    """
+    This adds a plot and corresponding parsing.
+    """
+    # title format
+    if '-'  in title_format:
+      title_f = title_format.split('-')[0]
+      title_s = title_format.split('-')[1]
+      assert title_s in ['colon', 'equal']
+    else:
+      title_f = title_format
+      title_s = None
+    assert title_f in ['long', 'short', 'off']
+
+    # latency mode
+    assert latency_mode in ['packet-header', 'packet', 'message', 'transaction']
+    lat_mode = latency_mode.split('-')[0]
+    header_latency = latency_mode == 'packet-header'
+
+    # set plot_type to valid format
+    d = ssplot.CommandLine.all_names()
+    found = False
+    valid = []
+    for pt in d:
+      valid.append(d[pt][0])
+      if plot_type in d[pt]:
+        plot_type = d[pt][0]
+        plot_names = d[pt]
+        found = True
+        break
+    assert found, 'plot type [{0}] not found, valid names: {1}'.format(
+      plot_type, valid)
+
+    # define parsing type
+    if plot_type == 'load-rate':
+      parse_type = None
+      assert transient_args is None
+      assert len(filters) == 0, 'No filters supported in load-rate plots'
+    elif plot_type in ['time-percent-minimal', 'time-average-hops',
+                       'time-latency']:
+      parse_type = 'transient'
+    else:
+      parse_type = 'ssparse'
+      assert transient_args is None
+
+    # assert checks
+    if len(self._parsings) > 0: # not empty
+      # check unique pair filter_name-filters per parsing type
+      if filter_name not in self._parsings.keys(): # unique filter_name
+        for key in self._parsings:
+          if parse_type == self._parsings[key]['parse_type']: # same parsing
+            if (set(filters)) != (self._parsings[key]['filters']): # unique filters
+              # ADD parsing
+              self._parsings[filter_name] = {}
+              self._parsings[filter_name]['parse_type'] = parse_type
+              self._parsings[filter_name]['filters'] = set(filters)
+              self._parsings[filter_name]['transient'] = transient_args
+              self._parsings[filter_name]['header_latency'] = header_latency
+              self._parsings[filter_name]['latency_mode'] = lat_mode
+              break
+            else: # NOT unique filters for unique filter name
+              print('NOT UNIQUE FILTERS')
+              assert False, 'Set of filters for {0} already exist with a '\
+                'different filter name!'.format(parse_type)
+          else: # not same parsing - allowed filters
+            self._parsings[filter_name] = {}
+            self._parsings[filter_name]['parse_type'] = parse_type
+            self._parsings[filter_name]['filters'] = set(filters)
+            self._parsings[filter_name]['transient'] = transient_args
+            self._parsings[filter_name]['header_latency'] = header_latency
+            self._parsings[filter_name]['latency_mode'] = lat_mode
+            break
+      else: # filter name already exists
+        # same filters
+        assert set(filters) == self._parsings[filter_name]['filters'], \
+                '[{}] must have the same filters'.format(filter_name)
+
+        assert transient_args == self._parsings[filter_name]['transient'] or \
+                header_latency == self._parsings[filter_name]['header_latency'] or \
+                lat_mode == self._parsings[filter_name]['latency_mode'], \
+                'Check [transient_args] and/or [latency_mode] ' \
+                'are the same in [{0}]'.format(filter_name)
+
+    else: # empty just add
+      # ADD
+      self._parsings[filter_name] = {}
+      self._parsings[filter_name]['parse_type'] = parse_type
+      self._parsings[filter_name]['filters'] = set(filters)
+      self._parsings[filter_name]['transient'] = transient_args
+      self._parsings[filter_name]['header_latency'] = header_latency
+      self._parsings[filter_name]['latency_mode'] = lat_mode
+
+    # plot does not exist for filter
+    assert (plot_type, filter_name) not in self._plots.keys(), \
+      'plot_type [{0}] already exists for parsing [{1}] with filter '\
+      '[{2}]'.format(plot_type, parse_type, filter_name)
+
+    # add plot
+    self._plots[(plot_type, filter_name)]={}
+    self._plots[(plot_type, filter_name)]['parsing'] = parse_type
+    self._plots[(plot_type, filter_name)]['plot_type'] = plot_type
+    self._plots[(plot_type, filter_name)]['settings'] = plot_settings
+    self._plots[(plot_type, filter_name)]['title_format'] = title_f
+    self._plots[(plot_type, filter_name)]['title_style'] = title_s
+
 
   def add_variable(self, name, short_name, values, set_command, compare=True):
     """
@@ -233,8 +304,11 @@ class Sweeper(object):
     # verify unique values
     assert len(values) == len(set(values)), 'Duplicate value detected'
 
-    # check more than 1 value was given for variable
+    # check at least 1 value was given for variable
     assert len(values) > 0
+
+    # shornames do not support spaces
+    assert ' ' not in short_name, 'Spaces not supported in short_name'
 
     # build the variable
     configall = {'name': name, 'short_name': short_name, 'values': list(values),
@@ -251,7 +325,6 @@ class Sweeper(object):
       do_vars           : variables to iterate through
       dont         : variables to remove from iteration
     """
-
     tmp_vars = []
     # All variables
     if do_vars is None:
@@ -322,7 +395,7 @@ class Sweeper(object):
       print('ERROR: {0}'.format(msg))
     exit(code)
 
-  def _make_id(self, config, extra=None):
+  def _make_id(self, config, f_name=None, extra=None):
     """
     This creates id for task
 
@@ -331,6 +404,8 @@ class Sweeper(object):
       extra    : extra values to append at the end (list or string)
     """
     values = [y_var['value'] for y_var in config]
+    if f_name is not None:
+      values.insert(0, f_name)
     if extra:
       if isinstance(extra, str):
         values.append(extra)
@@ -340,77 +415,32 @@ class Sweeper(object):
         assert False
     return '_'.join([str(x_values) for x_values in values])
 
-  def _make_title(self, config, plot_type, cvar=None, lat_dist=None):
-    """
-    This creates titles for plots
-    # qplot
-     Latency (TrafficPattern: UR, RoutingAlgorithm: AD, Load: 0.56)
-     Lat (TP: UR, RA: AD, LD: 0.56)
-     Lat (TP=UR RA=AD LD=0.56)
-
-    # rplots
-     Accepted Rate (TrafficPattern: UR, RoutingAlgorithm: AD)
-     Rate (TP: UR, RA: AD)
-
-    # lplots
-     Load vs. Latency (TrafficPattern: UR, RoutingAlgorithm: AD)
-     LvL (TP: UR, RA: AD)
-
-    # cplots
-     RoutingAlgorithm Comparison (TrafficPattern: UR [Mean])
-     RA Cmp (TP: UR [Mean])
-    """
-
-    if self._title_style is 'colon':
+  def _make_title(self, config, plot_info):
+    if plot_info['title_style'] == 'colon':
       separ = ': '
       delim = ', '
     else:
       separ = '='
       delim = ' '
-
     #tuples
     name_values = []
     for y_values in config:
-      if self._titles == 'long':
+      if plot_info['title_format'] == 'long':
         name_values.append((y_values['name'], str(y_values['value'])))
-      elif self._titles == 'short':
+      elif plot_info['title_format'] == 'short':
         name_values.append((y_values['short_name'], str(y_values['value'])))
-
     #format
     title = ''
-    # name values
     for idx, x_values in enumerate(name_values):
       tmp = separ.join(x_values)
       if idx != len(name_values)-1:
         title += tmp + delim
       else:
         title += tmp
-    # qplot
-    if plot_type == 'qplot':
-      if self._titles == 'long':
-        title = '"Latency ({0})"'.format(title)
-      elif self._titles == 'short':
-        title = '"Lat ({0})"'.format(title)
-    #lplot
-    if plot_type == 'lplot':
-      if self._titles == 'long':
-        title = '"Load vs. Latency ({0})"'.format(title)
-      elif self._titles == 'short':
-        title = '"LvL ({0})"'.format(title)
-    #rplot
-    if plot_type == 'rplot':
-      if self._titles == 'long':
-        title = '"Delivered Rate ({0})"'.format(title)
-      elif self._titles == 'short':
-        title = '"Rate ({0})"'.format(title)
-    #cplot
-    if plot_type == 'cplot':
-      if self._titles == 'long':
-        title = '"{0} Comparison ({1} [{2}])"'.format(
-          cvar['name'], title, lat_dist)
-      elif self._titles == 'short':
-        title = '"{0} Cmp ({1} [{2}])"'.format(
-          cvar['short_name'], title, lat_dist)
+    if len(title) > 0 :
+      title = '"{0} ({1})"'.format(plot_info['plot_type'], title)
+    else:
+      title = '"{0}"'.format(plot_info['plot_type'])
     return title
 
   def _create_config(self, *args):
@@ -447,37 +477,94 @@ class Sweeper(object):
     clean = ' ' + ' '.join([str(x_values) for x_values in [y for y in cmd]])
     return clean
 
-  def _get_files(self, id_task):
+  def _get_sim_files(self, id_task):
     """
-    This creates file names for a given id_task
-
-    Args:
-      id_task   : id_task to generate files for
+    This creates sim file names for a given id_task
     """
     dir_var = self._out_dir
     return {
-      'messages_mpf'  : os.path.join(
+      # generated by sim
+      'messages_mpf' : os.path.join(
         dir_var, self._data_folder, 'messages_{0}.mpf.gz'.format(id_task)),
-      'rates_csv'     : os.path.join(
+      'rates_csv' : os.path.join(
         dir_var, self._data_folder, 'rates_{0}.csv.gz'.format(id_task)),
-      'channels_csv'  : os.path.join(
-        dir_var, self._data_folder, 'channels_{0}.csv.gz'.format(id_task)),
-      'latency_csv'   : os.path.join(
-        dir_var, self._data_folder, 'latency_{0}.csv.gz'.format(id_task)),
-      'aggregate_csv' : os.path.join(
-        dir_var, self._data_folder, 'aggregate_{0}.csv.gz'.format(id_task)),
-      'usage_log'     : os.path.join(
-        dir_var, self._logs_folder, 'usage_{0}.log'.format(id_task)),
-      'simout_log'    : os.path.join(
+      'channels_csv' : os.path.join(
+      dir_var, self._data_folder, 'channels_{0}.csv.gz'.format(id_task)),
+      'simout_log' : os.path.join(
         dir_var, self._logs_folder, 'simout_{0}.log'.format(id_task)),
-      'qplot_png'     : os.path.join(
-        dir_var, self._plots_folder, 'qplot_{0}.png'.format(id_task)),
-      'rplot_png'     : os.path.join(
-        dir_var, self._plots_folder, 'rplot_{0}.png'.format(id_task)),
-      'lplot_png'     : os.path.join(
-        dir_var, self._plots_folder, 'lplot_{0}.png'.format(id_task)),
-      'cplot_png'     : os.path.join(
-        dir_var, self._plots_folder, 'cplot_{0}.png'.format(id_task)),
+      'usage_log' : os.path.join(
+        dir_var, self._logs_folder, 'usage_{0}.log'.format(id_task))
+    }
+  def _get_ssparse_files(self, id_task):
+    """
+    This creates ssparse file names for a given id_task
+    """
+    dir_var = self._out_dir
+    return {
+      # generated by ssparse
+      'samples_csv' : os.path.join(
+        dir_var, self._data_folder, 'samples_{0}.csv.gz'.format(id_task)),
+      'latency_csv' : os.path.join(
+        dir_var, self._data_folder, 'latency_{0}.csv.gz'.format(id_task)),
+      'hops_csv' : os.path.join(
+        dir_var, self._data_folder, 'hops_{0}.csv.gz'.format(id_task))
+    }
+
+  def _get_tparse_files(self, id_task):
+    """
+    This creates tparse file names for a given id_task
+    """
+    dir_var = self._out_dir
+    return {
+      # generated by transient parse
+      'trans_csv' : os.path.join(
+        dir_var, self._data_folder, 'trans_{0}.csv.gz'.format(id_task))
+    }
+
+  def _get_plot_files(self, id_task):
+    """
+    This creates plots file names for a given id_task
+    """
+    dir_var = self._out_dir
+    return {
+      # plots
+      'loadpermin_png' : os.path.join(
+        dir_var, self._plots_folder, 'loadpermin_{0}.png'.format(id_task)),
+      'loadlatcomp_png' : os.path.join(
+        dir_var, self._plots_folder, 'loadlatcomp_{0}.png'.format(id_task)),
+      'loadlat_png' : os.path.join(
+        dir_var, self._plots_folder, 'loadlat_{0}.png'.format(id_task)),
+      'loadrateper_png' : os.path.join(
+        dir_var, self._plots_folder, 'loadrateper_{0}.png'.format(id_task)),
+      'latpdf_png' : os.path.join(
+        dir_var, self._plots_folder, 'latpdf_{0}.png'.format(id_task)),
+      'latperc_png' : os.path.join(
+        dir_var, self._plots_folder, 'latperc_{0}.png'.format(id_task)),
+      'latcdf_png' : os.path.join(
+        dir_var, self._plots_folder, 'latcdf_{0}.png'.format(id_task)),
+      'loadavehops_png' : os.path.join(
+        dir_var, self._plots_folder, 'loadavehops_{0}.png'.format(id_task)),
+      'timelatscat_png': os.path.join(
+        dir_var, self._plots_folder, 'timelatscat_{0}.png'.format(id_task)),
+      'loadrate_png' : os.path.join(
+        dir_var, self._plots_folder, 'loadrate_{0}.png'.format(id_task)),
+      'timepermin_png' : os.path.join(
+        dir_var, self._plots_folder, 'timepermin_{0}.png'.format(id_task)),
+      'timeavehops_png' : os.path.join(
+        dir_var, self._plots_folder, 'timeavehops_{0}.png'.format(id_task)),
+      'timelat_png' : os.path.join(
+        dir_var, self._plots_folder, 'timelat_{0}.png'.format(id_task))
+    }
+
+  def _get_viewer_files(self, id_task):
+    """
+    This creates file names for a given id_task
+    Args:
+    id_task   : id_task to generate files for viewer
+    """
+    dir_var = self._out_dir
+    return {
+      # viewer
       'html'          : os.path.join(
         dir_var, self._viewer_folder, 'index.html'),
       'javascript'    : os.path.join(
@@ -495,10 +582,8 @@ class Sweeper(object):
     # task created only once
     assert not self._created, "Task already created! Fail!"
     self._created = True
-
     # add load to _variables
     self._variables.append(self._load_variable)
-
     # check for unique names
     x_values = []
     y_values = []
@@ -508,35 +593,72 @@ class Sweeper(object):
     assert len(x_values) == len(set(x_values)), "Not unique names!"
     assert len(y_values) == len(set(y_values)), "Not unique short names!"
 
-    # generate tasks
+    # sim
     if self._sim:
       print("Creating simulation tasks")
       self._create_sim_tasks(tm_var)
-    if self._parse:
-      print("Creating parsing tasks")
-      self._create_parse_tasks(tm_var)
-    if self._qplot:
-      print("Creating qplot tasks")
-      self._create_qplot_tasks(tm_var)
-    if self._lplot:
-      print("Creating lplot tasks")
-      self._create_lplot_tasks(tm_var)
-    if self._rplot:
-      print("Creating rplot tasks")
-      self._create_rplot_tasks(tm_var)
-    if self._cplot:
-      print("Creating cplot tasks")
-      self._create_cplot_tasks(tm_var)
-    if self._web_viewer:
-      print("Creating viewer")
-      self._create_web_viewer_task()
+    # parsings
+    for f_name in self._parsings:
+     # ssparse
+      if self._parsings[f_name]['parse_type'] == 'ssparse':
+        self._create_ssparse_tasks(tm_var, f_name)
+      # transient
+      elif self._parsings[f_name]['parse_type'] == 'transient':
+        self._create_tparse_tasks(tm_var, f_name)
+      # none
+      elif self._parsings[f_name]['parse_type'] == None:
+        pass
+      else:
+        assert False
+    # plots
+    for plot_type, filter_name in self._plots:
+      # none
+      if plot_type == 'load-rate':
+        self._create_loadrate_tasks(tm_var, filter_name)
+      # ssparse
+      if plot_type == 'load-percent-minimal':
+        self._create_loadpermin_tasks(tm_var, filter_name)
+      if plot_type == 'load-latency':
+        self._create_loadlat_tasks(tm_var, filter_name)
+      if plot_type == 'load-average-hops':
+        self._create_loadavehops_tasks(tm_var, filter_name)
+      if plot_type == 'load-rate-percent':
+        self._create_loadrateper_tasks(tm_var, filter_name)
+      if plot_type == 'load-latency-compare':
+        self._create_loadlatcomp_tasks(tm_var, filter_name)
+      if plot_type == 'latency-pdf':
+        self._create_latpdf_tasks(tm_var, filter_name)
+      if plot_type == 'latency-percentile':
+        self._create_latperc_tasks(tm_var, filter_name)
+      if plot_type == 'latency-cdf':
+        self._create_latcdf_tasks(tm_var, filter_name)
+      if plot_type == 'time-latency-scatter':
+        self._create_timelatscat_tasks(tm_var, filter_name)
+      # tran
+      if plot_type == 'time-percent-minimal':
+        self._create_timepermin_tasks(tm_var, filter_name)
+      if plot_type == 'time-average-hops':
+        self._create_timeavehops_tasks(tm_var, filter_name)
+      if plot_type == 'time-latency':
+        self._create_timelat_tasks(tm_var, filter_name)
 
+    # viewer
+    if self._viewer:
+      print("Creating viewer")
+      self._create_viewer_task()
+
+    # all cmds
+    if self._all_cmds is not None:
+      cmd_f = os.path.join(self._out_dir, self._all_cmds_file)
+      with open(cmd_f, 'w') as fd_cmd:
+        fd_cmd.write('\n'.join(str(line) for line in self._all_cmds))
+  # ===================================================================
   def _create_sim_tasks(self, tm_var):
     # create config
     for sim_config in self._dim_iter():
       # make id & name
       id_task = self._make_id(sim_config)
-      files = self._get_files(id_task)
+      files = self._get_sim_files(id_task)
       sim_name = 'sim_{0}'.format(id_task)
       # sim command
       sim_cmd = ('/usr/bin/time -v -o {0} {1} {2} '
@@ -555,186 +677,563 @@ class Sweeper(object):
         tmp_cmd = var['command'](var['value'], sim_config)
         cmd = self._cmd_clean(tmp_cmd)
         sim_cmd += cmd
+      self._all_cmds.append(sim_cmd)
       # sim task
-      sim_task = taskrun.ProcessTask(tm_var, sim_name, sim_cmd)
-      sim_task.stdout_file = files['simout_log']
-      sim_task.stderr_file = files['simout_log']
-      if self._get_resources is not None:
-        sim_task.resources = self._get_resources('sim', sim_config)
+      sim_task = self._create_task_func(
+        tm_var, sim_name, sim_cmd, files['simout_log'], 'sim', sim_config)
       sim_task.priority = 0
       sim_task.add_condition(taskrun.FileModificationCondition(
         [], [files['messages_mpf'], files['rates_csv'], files['channels_csv']]))
       self._sim_tasks[id_task] = sim_task
 
-  def _create_parse_tasks(self, tm_var):
+  # ssparse
+  def _create_ssparse_tasks(self, tm_var, f_name):
     # loop through all variables
-    for parse_config in self._dim_iter():
+    for ssparse_config in self._dim_iter():
       # make id and name
-      id_task = self._make_id(parse_config)
-      files = self._get_files(id_task)
-      parse_name = 'parse_{0}'.format(id_task)
+      id_ssparse = self._make_id(ssparse_config, f_name=f_name)
+      id_sim = self._make_id(ssparse_config)
+      ssparse_files = self._get_ssparse_files(id_ssparse)
+      sim_files = self._get_sim_files(id_sim)
+      ssparse_name = 'parse_{0}'.format(id_ssparse)
+
+      latency_mode = self._parsings[f_name]['latency_mode']
+      header_latency = self._parsings[f_name]['header_latency']
+      filters =  self._parsings[f_name]['filters']
+
       # parse cmd
-      parse_cmd = '{0} -{1} {2} -a {3} {4}'.format(
+      ssparse_cmd = '{0} -{1} {2} -l {3} -c {4} {5}'.format(
         self._ssparse_path,
-        self._latency_mode[:1].lower(),
-        files['latency_csv'],
-        files['aggregate_csv'],
-        files['messages_mpf'])
-      if self._header_latency:
-        parse_cmd += ' --headerlatency'
+        latency_mode[:1].lower(),
+        ssparse_files['samples_csv'],
+        ssparse_files['latency_csv'],
+        ssparse_files['hops_csv'],
+        sim_files['messages_mpf'])
 
+      if header_latency:
+        ssparse_cmd += ' --headerlatency'
       if self._parse_scalar is not None:
-        parse_cmd += ' -s {0}'.format(self._parse_scalar)
-
+        ssparse_cmd += ' -s {0}'.format(self._parse_scalar)
       # parse filters
-      for filter in self._parse_filters:
-        parse_cmd += ' -f {0}'.format(filter)
+      if filters is not None:
+        for filter in filters:
+          ssparse_cmd += ' -f {0}'.format(filter)
 
+      self._all_cmds.append(ssparse_cmd)
       # parse task
-      parse_task = taskrun.ProcessTask(tm_var, parse_name, parse_cmd)
-      if self._get_resources is not None:
-        parse_task.resources = self._get_resources('parse', parse_config)
-      parse_task.priority = 1
-      parse_task.add_dependency(self._sim_tasks[id_task])
-      parse_task.add_condition(taskrun.FileModificationCondition(
-        [files['messages_mpf']],
-        [files['latency_csv'], files['aggregate_csv']]))
-      self._parse_tasks[id_task] = parse_task
+      ssparse_task = self._create_task_func(
+        tm_var, ssparse_name, ssparse_cmd, None, 'parse', ssparse_config)
+      ssparse_task.priority = 1
+      ssparse_task.add_dependency(self._sim_tasks[id_sim])
+      ssparse_task.add_condition(taskrun.FileModificationCondition(
+        [sim_files['messages_mpf']],
+        [ssparse_files['samples_csv'], ssparse_files['latency_csv'],
+         ssparse_files['hops_csv']]))
+      self._ssparse_tasks[id_ssparse] = ssparse_task
 
-  def _create_qplot_tasks(self, tm_var):
+  # transient parse
+  def _create_tparse_tasks(self, tm_var, f_name):
     # loop through all variables
-    for qplot_config in self._dim_iter():
-      id_task = self._make_id(qplot_config)
-      files = self._get_files(id_task)
-      qplot_name = 'qplot_{0}'.format(id_task)
+    for tparse_config in self._dim_iter():
+      # make id and name
+      id_tparse = self._make_id(tparse_config, f_name=f_name)
+      id_sim = self._make_id(tparse_config)
+      tparse_files = self._get_tparse_files(id_tparse)
+      sim_files = self._get_sim_files(id_sim)
+      tparse_name = 'tparse_{0}'.format(id_tparse)
 
-      qplot_cmd = 'sslqp {0} {1} '.format(
-        files['latency_csv'],
-        files['qplot_png'])
+      # tparse cmd
+      tparse_cmd = '{0} {1} {2} {3}'.format(
+        self._transient_path,
+        self._ssparse_path,
+        sim_files['messages_mpf'],
+        tparse_files['trans_csv'])
+
+      filters =  self._parsings[f_name]['filters']
+      extra_args = self._parsings[f_name]['transient']
+      if self._parse_scalar is not None:
+        tparse_cmd += ' -s {0}'.format(self._parse_scalar)
+      if extra_args is not None:
+        tparse_cmd += ' {0} '.format(extra_args)
+      if filters is not None:
+        for filter in filters:
+          tparse_cmd += ' -f {0}'.format(filter)
+
+      self._all_cmds.append(tparse_cmd)
+      # tparse task
+      tparse_task = self._create_task_func(
+        tm_var, tparse_name, tparse_cmd, None, 'tparse', tparse_config)
+      tparse_task.priority = 1
+      tparse_task.add_dependency(self._sim_tasks[id_sim])
+      tparse_task.add_condition(taskrun.FileModificationCondition(
+        [sim_files['messages_mpf']],[tparse_files['trans_csv']]))
+      self._tparse_tasks[id_tparse] = tparse_task
+  # ===================================================================
+  # load-percent-minimal
+  def _create_loadpermin_tasks(self, tm_var, f_name):
+    # config with no load
+    for loadpermin_config in self._dim_iter(dont=self._load_name):
+      id_task1 = self._make_id(loadpermin_config, f_name = f_name)
+      loadpermin_name = 'loadpermin_{0}'.format(id_task1)
+      files1 = self._get_plot_files(id_task1)
+      # loadpermin cmd
+      loadpermin_cmd = ('ssplot load-percent-minimal {0} {1} {2} {3} '
+                   .format(files1['loadpermin_png'],
+                           self._start, self._stop + 1, self._step))
+      # plot settings
+      plot_info = self._plots[('load-percent-minimal', f_name)]
+      if plot_info['title_format'] != 'off':
+        loadpermin_title = self._make_title(loadpermin_config, plot_info)
+        loadpermin_cmd += (' --title {0} '.format(loadpermin_title))
+      for key in plot_info['settings']:
+        loadpermin_cmd += (' --{0} "{1}"'.format(key,
+                                                 plot_info['settings'][key]))
+      # add to loadpermin_cmd the stats files
+      for loads in  self._dim_iter(do_vars=self._load_name):
+        id_ssparse = self._make_id(loadpermin_config, f_name = f_name,
+                                   extra=self._make_id(loads))
+        files_ssparse = self._get_ssparse_files(id_ssparse)
+        loadpermin_cmd += ' {0}'.format(files_ssparse['hops_csv'])
+
+      self._all_cmds.append(loadpermin_cmd)
+      # create task
+      loadpermin_task = self._create_task_func(
+        tm_var, loadpermin_name, loadpermin_cmd, None,
+        'loadpermin', loadpermin_config)
+      loadpermin_task.priority = 1
+      # add dependencies
+      for loads in  self._dim_iter(do_vars=self._load_name):
+        id_task3 = self._make_id(loadpermin_config, extra=self._make_id(loads),
+                                 f_name = f_name)
+        loadpermin_task.add_dependency(self._ssparse_tasks[id_task3])
+      loadpermin_fmc = taskrun.FileModificationCondition(
+        [], [files1['loadpermin_png']])
+      # add input files to task
+      for loads in self._dim_iter(do_vars=self._load_name):
+        id_task4 = self._make_id(loadpermin_config, extra=self._make_id(loads),
+                                 f_name = f_name)
+        files3 = self._get_ssparse_files(id_task4)
+        loadpermin_fmc.add_input(files3['hops_csv'])
+      loadpermin_task.add_condition(loadpermin_fmc)
+
+  # load-latency
+  def _create_loadlat_tasks(self, tm_var, f_name):
+    # config with no load
+    for loadlat_config in self._dim_iter(dont=self._load_name):
+      id_task1 = self._make_id(loadlat_config, f_name=f_name)
+      loadlat_name = 'loadlat_{0}'.format(id_task1)
+      files1 = self._get_plot_files(id_task1)
+      # loadlat cmd
+      loadlat_cmd = ('ssplot load-latency --row {0} {1} {2} {3} {4} '
+                   .format(self._parsings[f_name]['latency_mode'].title(),
+                           files1['loadlat_png'],
+                           self._start, self._stop + 1, self._step))
+      # plot settings
+      plot_info = self._plots[('load-latency', f_name)]
+      if self._latency_units is not None:
+        loadlat_cmd += (' --units {0}'.format(self._latency_units))
+      if plot_info['title_format'] != 'off':
+        loadlat_title = self._make_title(loadlat_config, plot_info)
+        loadlat_cmd += (' --title {0} '.format(loadlat_title))
+      for key in plot_info['settings']:
+        loadlat_cmd += (' --{0} "{1}"'.format(key,plot_info['settings'][key]))
+      # add stats files
+      for loads in  self._dim_iter(do_vars=self._load_name):
+        id_task2 = self._make_id(loadlat_config, extra=self._make_id(loads),
+                                 f_name=f_name)
+        files2 = self._get_ssparse_files(id_task2)
+        loadlat_cmd += ' {0}'.format(files2['latency_csv'])
+      self._all_cmds.append(loadlat_cmd)
+      # create task
+      loadlat_task = self._create_task_func(
+        tm_var, loadlat_name, loadlat_cmd, None, 'loadlat', loadlat_config)
+      loadlat_task.priority = 1
+      # add dependencies
+      for loads in  self._dim_iter(do_vars=self._load_name):
+        id_task3 = self._make_id(loadlat_config, extra=self._make_id(loads),
+                                 f_name=f_name)
+        loadlat_task.add_dependency(self._ssparse_tasks[id_task3])
+      loadlat_fmc = taskrun.FileModificationCondition([],
+                                                      [files1['loadlat_png']])
+      # add input files to task
+      for loads in self._dim_iter(do_vars=self._load_name):
+        id_task4 = self._make_id(loadlat_config, extra=self._make_id(loads),
+                                 f_name=f_name)
+        files3 = self._get_ssparse_files(id_task4)
+        loadlat_fmc.add_input(files3['latency_csv'])
+      loadlat_task.add_condition(loadlat_fmc)
+
+  # load-rate-percent
+  def _create_loadrateper_tasks(self, tm_var, f_name):
+    # config with no load
+    for loadrateper_config in self._dim_iter(dont=self._load_name):
+      id_task1 = self._make_id(loadrateper_config, f_name=f_name)
+      id_sim = self._make_id(loadrateper_config)
+      loadrateper_name = 'loadrateper_{0}'.format(id_task1)
+      plot_files1 = self._get_plot_files(id_task1)
+      sim_files1 = self._get_sim_files(id_sim)
+      # loadrateper cmd
+      loadrateper_cmd = ('ssplot load-rate-percent {0} {1} {2} {3}'
+                   .format(plot_files1['loadrateper_png'],
+                           self._start, self._stop + 1, self._step))
+      # add rate and hops files
+      rates_files = ''
+      hops_files = ''
+      for loads in self._dim_iter(do_vars=self._load_name):
+        id_task2 = self._make_id(loadrateper_config, extra=self._make_id(loads),
+                                 f_name=f_name)
+        ssparse_files2 = self._get_ssparse_files(id_task2)
+        id_sim2 = self._make_id(loadrateper_config, extra=self._make_id(loads))
+        sim_files2 = self._get_sim_files(id_sim2)
+        rates_files += ' {0}'.format(sim_files2['rates_csv'])
+        hops_files += ' {0}'.format(ssparse_files2['hops_csv'])
+      loadrateper_cmd += ' --rate_stats {0}'.format(rates_files)
+      loadrateper_cmd += ' --hops_stats {0}'.format(hops_files)
+      # plot settings
+      plot_info = self._plots[('load-rate-percent', f_name)]
+      if plot_info['title_format'] != 'off':
+        loadrateper_title = self._make_title(loadrateper_config, plot_info)
+        loadrateper_cmd += (' --title {0} '.format(loadrateper_title))
+      for key in plot_info['settings']:
+        loadrateper_cmd += (' --{0} "{1}"'.format(key,
+                                                plot_info['settings'][key]))
+      self._all_cmds.append(loadrateper_cmd)
+      # create task
+      loadrateper_task = self._create_task_func(
+        tm_var, loadrateper_name, loadrateper_cmd, None,
+        'loadrateper', loadrateper_config)
+      loadrateper_task.priority = 1
+      # add dependencies
+      for loads in  self._dim_iter(do_vars=self._load_name):
+        id_task3 = self._make_id(loadrateper_config, extra=self._make_id(loads),
+                                 f_name=f_name)
+        loadrateper_task.add_dependency(self._ssparse_tasks[id_task3])
+
+      loadrateper_fmc = taskrun.FileModificationCondition(
+        [], [plot_files1['loadrateper_png']])
+      # add input files to task
+      for loads in self._dim_iter(do_vars=self._load_name):
+        id_task4 = self._make_id(loadrateper_config, extra=self._make_id(loads),
+                                 f_name=f_name)
+        ssparse_files3 = self._get_ssparse_files(id_task4)
+        id_sim4 = self._make_id(loadrateper_config, extra=self._make_id(loads))
+        sim_files3 = self._get_sim_files(id_sim4)
+        loadrateper_fmc.add_input(sim_files3['rates_csv'])
+        loadrateper_fmc.add_input(ssparse_files3['hops_csv'])
+      loadrateper_task.add_condition(loadrateper_fmc)
+
+  # latency-pdf
+  def _create_latpdf_tasks(self, tm_var, f_name):
+    # loop through all variables
+    for latpdf_config in self._dim_iter():
+      id_task = self._make_id(latpdf_config, f_name=f_name)
+      ssparse_files = self._get_ssparse_files(id_task)
+      plot_files = self._get_plot_files(id_task)
+      latpdf_name = 'latpdf_{0}'.format(id_task)
+      latpdf_cmd = 'ssplot latency-pdf {0} {1} '.format(
+        ssparse_files['samples_csv'],
+        plot_files['latpdf_png'])
 
       # plot settings
-      if self._titles != 'off':
-        qplot_title = self._make_title(qplot_config, 'qplot')
-        qplot_cmd += (' --title {0} '.format(qplot_title))
+      plot_info = self._plots[('latency-pdf',f_name)]
       if self._latency_units is not None:
-        qplot_cmd += (' --units {0} '.format(self._latency_units))
-      if self._plot_size is not None:
-        qplot_cmd += (' --size {0} '.format(self._plot_size))
+        latpdf_cmd += (' --units {0}'.format(self._latency_units))
+      if plot_info['title_format'] != 'off':
+        latpdf_title = self._make_title(latpdf_config, plot_info)
+        latpdf_cmd += (' --title {0} '.format(latpdf_title))
+      for key in plot_info['settings']:
+        latpdf_cmd += (' --{0} "{1}"'.format(key,plot_info['settings'][key]))
 
+      self._all_cmds.append(latpdf_cmd)
       # create tasks
-      qplot_task = taskrun.ProcessTask(tm_var, qplot_name, qplot_cmd)
-      if self._get_resources is not None:
-        qplot_task.resources = self._get_resources('qplot', qplot_config)
-      qplot_task.priority = 1
-      qplot_task.add_dependency(self._parse_tasks[id_task])
-      qplot_task.add_condition(taskrun.FileModificationCondition(
-        [files['latency_csv']],
-        [files['qplot_png']]))
+      latpdf_task = self._create_task_func(
+        tm_var, latpdf_name, latpdf_cmd, None, 'latpdf', latpdf_config)
+      latpdf_task.priority = 1
+      latpdf_task.add_dependency(self._ssparse_tasks[id_task])
+      latpdf_task.add_condition(taskrun.FileModificationCondition(
+        [ssparse_files['samples_csv']],
+        [plot_files['latpdf_png']]))
 
-  def _create_rplot_tasks(self, tm_var):
-    # config with no load
-    for rplot_config in self._dim_iter(dont=self._load_name):
-      id_task1 = self._make_id(rplot_config)
-      rplot_name = 'rplot_{0}'.format(id_task1)
-      files1 = self._get_files(id_task1)
-
-      # rplot cmd
-      rplot_cmd = ('sslrp {0} {1} {2} {3}'
-                   .format(files1['rplot_png'],
-                           self._start, self._stop + 1, self._step))
-
-      # add to rplot_cmd the load files- sweep load
-      for loads in self._dim_iter(do_vars=self._load_name):
-        id_task2 = self._make_id(rplot_config, extra=self._make_id(loads))
-        files2 = self._get_files(id_task2)
-        rplot_cmd += ' {0}'.format(files2['rates_csv'])
-
-      if self._titles != 'off':
-        rplot_title = self._make_title(rplot_config, 'rplot')
-        rplot_cmd += (' --title {0} '.format(rplot_title))
-
-      # check plot settings
-      if self._rate_ymin is not None:
-        rplot_cmd += (' --ymin {0}'.format(self._rate_ymin))
-      if self._rate_ymax is not None:
-        rplot_cmd += (' --ymax {0}'.format(self._rate_ymax))
-      if self._plot_size is not None:
-        rplot_cmd += (' --size {0} '.format(self._plot_size))
-      if self._plot_style is not None:
-        rplot_cmd += (' --style {0} '.format(self._plot_style))
-
-      # create task
-      rplot_task = taskrun.ProcessTask(tm_var, rplot_name, rplot_cmd)
-      if self._get_resources is not None:
-        rplot_task.resources = self._get_resources('rplot', rplot_config)
-      rplot_task.priority = 1
-      # add dependencies
-      for loads in  self._dim_iter(do_vars=self._load_name):
-        id_task3 = self._make_id(rplot_config, extra=self._make_id(loads))
-        rplot_task.add_dependency(self._parse_tasks[id_task3])
-
-      rplot_fmc = taskrun.FileModificationCondition([], [files1['rplot_png']])
-
-      # add input files to task
-      for loads in self._dim_iter(do_vars=self._load_name):
-        id_task4 = self._make_id(rplot_config, extra=self._make_id(loads))
-        files3 = self._get_files(id_task4)
-        rplot_fmc.add_input(files3['rates_csv'])
-      rplot_task.add_condition(rplot_fmc)
-
-  def _create_lplot_tasks(self, tm_var):
-    # config with no load
-    for lplot_config in self._dim_iter(dont=self._load_name):
-      id_task1 = self._make_id(lplot_config)
-      lplot_name = 'lplot_{0}'.format(id_task1)
-      files1 = self._get_files(id_task1)
-      # lplot cmd
-      lplot_cmd = ('ssllp --row {0} {1} {2} {3} {4} '
-                   .format(self._latency_mode.title(), files1['lplot_png'],
-                           self._start, self._stop + 1, self._step))
-
-      if self._titles != 'off':
-        lplot_title = self._make_title(lplot_config, 'lplot')
-        lplot_cmd += (' --title {0} '.format(lplot_title))
-
-      # check plot settings
+  # latency-percentile
+  def _create_latperc_tasks(self, tm_var, f_name):
+    # loop through all variables
+    for latperc_config in self._dim_iter():
+      id_task = self._make_id(latperc_config, f_name=f_name)
+      ssparse_files = self._get_ssparse_files(id_task)
+      plot_files = self._get_plot_files(id_task)
+      latperc_name = 'latperc_{0}'.format(id_task)
+      latperc_cmd = 'ssplot latency-percentile {0} {1} '.format(
+        ssparse_files['samples_csv'],
+        plot_files['latperc_png'])
+      # plot settings
+      plot_info = self._plots[('latency-percentile', f_name)]
       if self._latency_units is not None:
-        lplot_cmd += (' --units {0}'.format(self._latency_units))
-      if self._latency_ymin is not None:
-        lplot_cmd += (' --ymin {0}'.format(self._latency_ymin))
-      if self._latency_ymax is not None:
-        lplot_cmd += (' --ymax {0}'.format(self._latency_ymax))
-      if self._plot_size is not None:
-        lplot_cmd += (' --size {0} '.format(self._plot_size))
-      if self._plot_style is not None:
-        lplot_cmd += (' --style {0} '.format(self._plot_style))
+        latperc_cmd += (' --units {0}'.format(self._latency_units))
+      if plot_info['title_format'] != 'off':
+        latperc_title = self._make_title(latperc_config, plot_info)
+        latperc_cmd += (' --title {0} '.format(latperc_title))
+      for key in plot_info['settings']:
+        latperc_cmd += (' --{0} "{1}"'.format(key,plot_info['settings'][key]))
+      self._all_cmds.append(latperc_cmd)
+      # create tasks
+      latperc_task = self._create_task_func(
+        tm_var, latperc_name, latperc_cmd, None, 'latperc', latperc_config)
+      latperc_task.priority = 1
+      latperc_task.add_dependency(self._ssparse_tasks[id_task])
+      latperc_task.add_condition(taskrun.FileModificationCondition(
+        [ssparse_files['samples_csv']],
+        [plot_files['latperc_png']]))
 
-      # add to lplot_cmd the load files- sweep load
+  # latency-cdf
+  def _create_latcdf_tasks(self, tm_var, f_name):
+    # loop through all variables
+    for latcdf_config in self._dim_iter():
+      id_task = self._make_id(latcdf_config, f_name=f_name)
+      ssparse_files = self._get_ssparse_files(id_task)
+      plot_files = self._get_plot_files(id_task)
+      latcdf_name = 'latcdf_{0}'.format(id_task)
+      latcdf_cmd = 'ssplot latency-cdf {0} {1} '.format(
+        ssparse_files['samples_csv'],
+        plot_files['latcdf_png'])
+
+      # plot settings
+      plot_info = self._plots[('latency-cdf', f_name)]
+      if self._latency_units is not None:
+        latcdf_cmd += (' --units {0}'.format(self._latency_units))
+      if plot_info['title_format'] != 'off':
+        latcdf_title = self._make_title(latcdf_config, plot_info)
+        latcdf_cmd += (' --title {0} '.format(latcdf_title))
+      for key in plot_info['settings']:
+        latcdf_cmd += (' --{0} "{1}"'.format(key,plot_info['settings'][key]))
+      self._all_cmds.append(latcdf_cmd)
+      # create tasks
+      latcdf_task = self._create_task_func(
+        tm_var, latcdf_name, latcdf_cmd, None, 'latcdf', latcdf_config)
+      latcdf_task.priority = 1
+      latcdf_task.add_dependency(self._ssparse_tasks[id_task])
+      latcdf_task.add_condition(taskrun.FileModificationCondition(
+        [ssparse_files['samples_csv']],
+        [plot_files['latcdf_png']]))
+
+  # load-average-hops
+  def _create_loadavehops_tasks(self, tm_var, f_name):
+    # config with no load
+    for loadavehops_config in self._dim_iter(dont=self._load_name):
+      id_task1 = self._make_id(loadavehops_config, f_name=f_name)
+      loadavehops_name = 'loadavehops_{0}'.format(id_task1)
+      files1 = self._get_plot_files(id_task1)
+      # loadavehops cmd
+      loadavehops_cmd = ('ssplot load-average-hops {0} {1} {2} {3} '
+                   .format(files1['loadavehops_png'],
+                           self._start, self._stop + 1, self._step))
+      # plot settings
+      plot_info = self._plots[('load-average-hops', f_name)]
+      if plot_info['title_format'] != 'off':
+        loadavehops_title = self._make_title(loadavehops_config, plot_info)
+        loadavehops_cmd += (' --title {0} '.format(loadavehops_title))
+      for key in plot_info['settings']:
+        loadavehops_cmd += (' --{0} "{1}"'.format(key,
+                                                  plot_info['settings'][key]))
+      # add the stats files
       for loads in  self._dim_iter(do_vars=self._load_name):
-        id_task2 = self._make_id(lplot_config, extra=self._make_id(loads))
-        files2 = self._get_files(id_task2)
-        lplot_cmd += ' {0}'.format(files2['aggregate_csv'])
-
+        id_task2 = self._make_id(loadavehops_config, extra=self._make_id(loads),
+                                 f_name=f_name)
+        files2 = self._get_ssparse_files(id_task2)
+        loadavehops_cmd += ' {0}'.format(files2['hops_csv'])
+      self._all_cmds.append(loadavehops_cmd)
       # create task
-      lplot_task = taskrun.ProcessTask(tm_var, lplot_name, lplot_cmd)
-      if self._get_resources is not None:
-        lplot_task.resources = self._get_resources('lplot', lplot_config)
-      lplot_task.priority = 1
+      loadavehops_task = self._create_task_func(
+        tm_var, loadavehops_name, loadavehops_cmd, None,
+        'loadavehops', loadavehops_config)
+      loadavehops_task.priority = 1
       # add dependencies
       for loads in  self._dim_iter(do_vars=self._load_name):
-        id_task3 = self._make_id(lplot_config, extra=self._make_id(loads))
-        lplot_task.add_dependency(self._parse_tasks[id_task3])
-
-      lplot_fmc = taskrun.FileModificationCondition([], [files1['lplot_png']])
-
+        id_task3 = self._make_id(loadavehops_config, extra=self._make_id(loads),
+                                 f_name=f_name)
+        loadavehops_task.add_dependency(self._ssparse_tasks[id_task3])
+      loadavehops_fmc = taskrun.FileModificationCondition(
+        [], [files1['loadavehops_png']])
       # add input files to task
       for loads in self._dim_iter(do_vars=self._load_name):
-        id_task4 = self._make_id(lplot_config, extra=self._make_id(loads))
-        files3 = self._get_files(id_task4)
-        lplot_fmc.add_input(files3['aggregate_csv'])
-      lplot_task.add_condition(lplot_fmc)
+        id_task4 = self._make_id(loadavehops_config, extra=self._make_id(loads),
+                                 f_name=f_name)
+        files3 = self._get_ssparse_files(id_task4)
+        loadavehops_fmc.add_input(files3['hops_csv'])
+      loadavehops_task.add_condition(loadavehops_fmc)
 
-  def _create_cplot_tasks(self, tm_var):
+  # time-latency-scatter
+  def _create_timelatscat_tasks(self, tm_var, f_name):
+    # loop through all variables
+    for timelatscat_config in self._dim_iter():
+      id_task = self._make_id(timelatscat_config, f_name=f_name)
+      ssparse_files = self._get_ssparse_files(id_task)
+      plot_files = self._get_plot_files(id_task)
+      timelatscat_name = 'timelatscat_{0}'.format(id_task)
+      timelatscat_cmd = 'ssplot time-latency-scatter {0} {1} '.format(
+        ssparse_files['samples_csv'],
+        plot_files['timelatscat_png'])
+
+      # plot settings
+      plot_info = self._plots[('time-latency-scatter', f_name)]
+      if self._latency_units is not None:
+        timelatscat_cmd += (' --units {0}'.format(self._latency_units))
+      if plot_info['title_format'] != 'off':
+        timelatscat_title = self._make_title(timelatscat_config, plot_info)
+        timelatscat_cmd += (' --title {0} '.format(timelatscat_title))
+      for key in plot_info['settings']:
+        timelatscat_cmd += (' --{0} "{1}"'.format(key,
+                                                  plot_info['settings'][key]))
+      self._all_cmds.append(timelatscat_cmd)
+      # create tasks
+      timelatscat_task = self._create_task_func(
+        tm_var, timelatscat_name, timelatscat_cmd, None,
+        'timelatscat', timelatscat_config)
+      timelatscat_task.priority = 1
+      timelatscat_task.add_dependency(self._ssparse_tasks[id_task])
+      timelatscat_task.add_condition(taskrun.FileModificationCondition(
+        [ssparse_files['samples_csv']],
+        [plot_files['timelatscat_png']]))
+
+  # time-percent-minimal
+  def _create_timepermin_tasks(self, tm_var, f_name):
+    # loop through all variables
+    for timepermin_config in self._dim_iter():
+      id_task = self._make_id(timepermin_config, f_name=f_name)
+      plot_files = self._get_plot_files(id_task)
+      tparse_files = self._get_tparse_files(id_task)
+      timepermin_name = 'timepermin_{0}'.format(id_task)
+      timepermin_cmd = 'ssplot time-percent-minimal {0} {1} '.format(
+        tparse_files['trans_csv'],
+        plot_files['timepermin_png'])
+
+      # plot settings
+      plot_info = self._plots[('time-percent-minimal', f_name)]
+      if plot_info['title_format'] != 'off':
+        timepermin_title = self._make_title(timepermin_config, plot_info)
+        timepermin_cmd += (' --title {0} '.format(timepermin_title))
+      for key in plot_info['settings']:
+        timepermin_cmd += (' --{0} "{1}"'.format(key,
+                                                  plot_info['settings'][key]))
+      self._all_cmds.append(timepermin_cmd)
+      # create tasks
+      timepermin_task = self._create_task_func(
+        tm_var, timepermin_name, timepermin_cmd, None,
+        'timepermin', timepermin_config)
+      timepermin_task.priority = 1
+      timepermin_task.add_dependency(self._tparse_tasks[id_task])
+      timepermin_task.add_condition(taskrun.FileModificationCondition(
+        [tparse_files['trans_csv']],
+        [plot_files['timepermin_png']]))
+
+  # time-average-hops
+  def _create_timeavehops_tasks(self, tm_var, f_name):
+    # loop through all variables
+    for timeavehops_config in self._dim_iter():
+      id_task = self._make_id(timeavehops_config, f_name=f_name)
+      plot_files = self._get_plot_files(id_task)
+      tparse_files = self._get_tparse_files(id_task)
+      timeavehops_name = 'timeavehops_{0}'.format(id_task)
+      timeavehops_cmd = 'ssplot time-average-hops {0} {1} '.format(
+        tparse_files['trans_csv'],
+        plot_files['timeavehops_png'])
+
+      # plot settings
+      plot_info = self._plots[('time-average-hops', f_name)]
+      if plot_info['title_format'] != 'off':
+        timeavehops_title = self._make_title(timeavehops_config, plot_info)
+        timeavehops_cmd += (' --title {0} '.format(timeavehops_title))
+      for key in plot_info['settings']:
+        timeavehops_cmd += (' --{0} "{1}"'.format(key,
+                                                  plot_info['settings'][key]))
+      self._all_cmds.append(timeavehops_cmd)
+      # create tasks
+      timeavehops_task = self._create_task_func(
+        tm_var, timeavehops_name, timeavehops_cmd, None,
+        'timeavehops', timeavehops_config)
+      timeavehops_task.priority = 1
+      timeavehops_task.add_dependency(self._tparse_tasks[id_task])
+      timeavehops_task.add_condition(taskrun.FileModificationCondition(
+        [tparse_files['trans_csv']],
+        [plot_files['timeavehops_png']]))
+
+  # time-latency
+  def _create_timelat_tasks(self, tm_var, f_name):
+    # loop through all variables
+    for timelat_config in self._dim_iter():
+      id_task = self._make_id(timelat_config, f_name=f_name)
+      plot_files = self._get_plot_files(id_task)
+      tparse_files = self._get_tparse_files(id_task)
+      timelat_name = 'timelat_{0}'.format(id_task)
+      timelat_cmd = 'ssplot time-latency {0} {1} '.format(
+        tparse_files['trans_csv'],
+        plot_files['timelat_png'])
+
+      # plot settings
+      plot_info = self._plots[('time-latency', f_name)]
+      if self._latency_units is not None:
+        timelat_cmd += (' --units {0}'.format(self._latency_units))
+      if plot_info['title_format'] != 'off':
+        timelat_title = self._make_title(timelat_config, plot_info)
+        timelat_cmd += (' --title {0} '.format(timelat_title))
+      for key in plot_info['settings']:
+        timelat_cmd += (' --{0} "{1}"'.format(key,
+                                                  plot_info['settings'][key]))
+      self._all_cmds.append(timelat_cmd)
+      # create tasks
+      timelat_task = self._create_task_func(
+        tm_var, timelat_name, timelat_cmd, None,
+        'timelat', timelat_config)
+      timelat_task.priority = 1
+      timelat_task.add_dependency(self._tparse_tasks[id_task])
+      timelat_task.add_condition(taskrun.FileModificationCondition(
+        [tparse_files['trans_csv']],
+        [plot_files['timelat_png']]))
+
+  # load-rate
+  def _create_loadrate_tasks(self, tm_var, f_name):
+    # config with no load
+    for loadrate_config in self._dim_iter(dont=self._load_name):
+      id_task1 = self._make_id(loadrate_config, f_name=f_name)
+      id_sim = self._make_id(loadrate_config)
+      loadrate_name = 'loadrate_{0}'.format(id_task1)
+      plot_files1 = self._get_plot_files(id_task1)
+      sim_files1 = self._get_sim_files(id_sim)
+      # loadrate cmd
+      loadrate_cmd = ('ssplot load-rate {0} {1} {2} {3}'
+                   .format(plot_files1['loadrate_png'],
+                           self._start, self._stop + 1, self._step))
+      # add stats
+      for loads in self._dim_iter(do_vars=self._load_name):
+        id_task2 = self._make_id(loadrate_config, extra=self._make_id(loads))
+        sim_files2 = self._get_sim_files(id_task2)
+        loadrate_cmd += ' {0}'.format(sim_files2['rates_csv'])
+      # plot settings
+      plot_info = self._plots[('load-rate', f_name)]
+      if plot_info['title_format'] != 'off':
+        loadrate_title = self._make_title(loadrate_config, plot_info)
+        loadrate_cmd += (' --title {0} '.format(loadrate_title))
+      for key in plot_info['settings']:
+        loadrate_cmd += (' --{0} "{1}"'.format(key,plot_info['settings'][key]))
+      self._all_cmds.append(loadrate_cmd)
+      # create task
+      loadrate_task = self._create_task_func(
+        tm_var, loadrate_name, loadrate_cmd, None, 'loadrate', loadrate_config)
+      loadrate_task.priority = 1
+      # add dependencies
+      for loads in  self._dim_iter(do_vars=self._load_name):
+        id_task3 = self._make_id(loadrate_config, extra=self._make_id(loads))
+        loadrate_task.add_dependency(self._sim_tasks[id_task3])
+      loadrate_fmc = taskrun.FileModificationCondition(
+        [], [plot_files1['loadrate_png']])
+      # add input files to task
+      for loads in self._dim_iter(do_vars=self._load_name):
+        id_task4 = self._make_id(loadrate_config, extra=self._make_id(loads))
+        sim_files3 = self._get_sim_files(id_task4)
+        loadrate_fmc.add_input(sim_files3['rates_csv'])
+      loadrate_task.add_condition(loadrate_fmc)
+
+  # load-latency-compare
+  def _create_loadlatcomp_tasks(self, tm_var, f_name):
     # loop over all vars that should compared and have more than 1 value
     for cvar in self._variables:
       if (cvar['name'] is not self._load_name and cvar['compare']
@@ -742,78 +1241,80 @@ class Sweeper(object):
         # count number of compare variables
         self._comp_var_count += 1
         # iterate all configurations for this variable (no l, no cvar)
-        for cplot_config in self._dim_iter(dont=[self._load_name,
+        for loadlatcomp_config in self._dim_iter(dont=[self._load_name,
                                                  cvar['name']]):
           # iterate all latency distributions (9)
           for field in ssplot.LoadLatencyStats.FIELDS:
             field2 = field.replace('%','')
             # make id, plot title, png file
-            id_task = self._make_id(cplot_config, extra=field2)
-            cplot_name = 'cplot_{0}_{1}'.format(cvar['short_name'], id_task)
-            files = self._get_files(('{0}_{1}'.format(cvar['short_name'],
-                                                      id_task)))
-
+            id_task = self._make_id(loadlatcomp_config, extra=field2,
+                                    f_name=f_name)
+            loadlatcomp_name = 'loadlatcomp_{0}_{1}'.format(cvar['short_name'],
+                                                            id_task)
+            plot_files = self._get_plot_files(
+              ('{0}_{1}'.format(cvar['short_name'], id_task)))
             # cmd
-            cplot_cmd = ('sslcp --row {0} --field {1} {2} {3} {4} {5} '
-                         .format(self._latency_mode.title(),
-                                 field, files['cplot_png'],
+            loadlatcomp_cmd = ('ssplot load-latency-compare --row {0} ' \
+                         '--field {1} {2} {3} {4} {5} '
+                         .format(self._parsings[f_name]['latency_mode'].title(),
+                                 field, plot_files['loadlatcomp_png'],
                                  self._start, self._stop + 1, self._step))
-            # title
-            if self._titles != 'off':
-              cplot_title = self._make_title(cplot_config, 'cplot', cvar=cvar,
-                                           lat_dist=field)
-              cplot_cmd += (' --title {0} '.format(cplot_title))
-
-            # add plot settings if they exist
+            # plot settings
+            plot_info = self._plots[('load-latency-compare',f_name)]
             if self._latency_units is not None:
-              cplot_cmd += (' --units {0}'.format(self._latency_units))
-            if self._latency_ymin is not None:
-              cplot_cmd += (' --ymin {0}'.format(self._latency_ymin))
-            if self._latency_ymax is not None:
-              cplot_cmd += (' --ymax {0}'.format(self._latency_ymax))
-            if self._plot_size is not None:
-              cplot_cmd += (' --size {0} '.format(self._plot_size))
-            if self._plot_style is not None:
-              cplot_cmd += (' --style {0} '.format(self._plot_style))
+              loadlatcomp_cmd += (' --units {0}'.format(self._latency_units))
+            if plot_info['title_format'] != 'off':
+              loadlatcomp_title = self._make_title(loadlatcomp_config,
+                                                   plot_info)
+              loadlatcomp_cmd += (' --title {0} '.format(loadlatcomp_title))
+            loadlatcomp_cmd += (' --legend_title "{0}" '.format(
+              cvar['name']))
+            for key in plot_info['settings']:
+              loadlatcomp_cmd += (' --{0} "{1}"'.format(
+                key, plot_info['settings'][key]))
 
             # loop through comp variable and loads to add agg files to cmd
             for var_load_config in self._dim_iter(do_vars=[cvar['name'],
                                                            self._load_name]):
               # create ordered config with cvar and load
-              sim_config = self._create_config(cplot_config, var_load_config)
-              id_task2 = self._make_id(sim_config)
-              files2 = self._get_files(id_task2)
-              cplot_cmd += ' {0}'.format(files2['aggregate_csv'])
+              sim_config = self._create_config(loadlatcomp_config,
+                                               var_load_config)
+              id_task2 = self._make_id(sim_config, f_name=f_name)
+              ssparse_files2 = self._get_ssparse_files(id_task2)
+              loadlatcomp_cmd += ' {0}'.format(ssparse_files2['latency_csv'])
             # loop through comp variable to create legend
             for var_config in self._dim_iter(do_vars=cvar['name']):
               for var in var_config:
-                cplot_cmd += ' --label "{0}"'.format(var['value'])
+                loadlatcomp_cmd += ' --data_label "{0}"'.format(var['value'])
 
+            self._all_cmds.append(loadlatcomp_cmd)
             # create task
-            cplot_task = taskrun.ProcessTask(tm_var, cplot_name, cplot_cmd)
-            if self._get_resources is not None:
-              cplot_task.resources = self._get_resources('cplot', cplot_config)
-            cplot_task.priority = 1
+            loadlatcomp_task = self._create_task_func(
+              tm_var, loadlatcomp_name, loadlatcomp_cmd, None,
+              'loadlatcomp', loadlatcomp_config)
+            loadlatcomp_task.priority = 1
             # add dependencies (loop through load and cvar)
             for var_load_config in self._dim_iter(do_vars=[cvar['name'],
                                                            self._load_name]):
               # create ordered config with cvar and load
-              sim_config = self._create_config(cplot_config, var_load_config)
-              id_task3 = self._make_id(sim_config)
-              cplot_task.add_dependency(self._parse_tasks[id_task3])
-            cplot_fmc = taskrun.FileModificationCondition(
-              [], [files['cplot_png']])
+              sim_config = self._create_config(loadlatcomp_config,
+                                               var_load_config)
+              id_task3 = self._make_id(sim_config, f_name=f_name)
+              loadlatcomp_task.add_dependency(self._ssparse_tasks[id_task3])
+            loadlatcomp_fmc = taskrun.FileModificationCondition(
+              [], [plot_files['loadlatcomp_png']])
             for var_load_config in self._dim_iter(do_vars=[cvar['name'],
                                                            self._load_name]):
               # create ordered config with cvar and load
-              sim_config = self._create_config(cplot_config, var_load_config)
-              id_task4 = self._make_id(sim_config)
-              files3 = self._get_files(id_task4)
-              cplot_fmc.add_input(files3['aggregate_csv'])
-            cplot_task.add_condition(cplot_fmc)
+              sim_config = self._create_config(loadlatcomp_config,
+                                               var_load_config)
+              id_task4 = self._make_id(sim_config, f_name=f_name)
+              ssparse_files3 = self._get_ssparse_files(id_task4)
+              loadlatcomp_fmc.add_input(ssparse_files3['latency_csv'])
+            loadlatcomp_task.add_condition(loadlatcomp_fmc)
 
-  def _create_web_viewer_task(self):
-    files = self._get_files('')
+  def _create_viewer_task(self):
+    files = self._get_viewer_files('')
 
     # css
     css = get_css()
@@ -840,7 +1341,7 @@ class Sweeper(object):
     create_name = get_create_name()
     compose_name = get_compose_name(self)
 
-    js_all = load_params + get_params + show_div + cplot_divs + create_name + \
-    get_log + compose_name + add_params
+    js_all = load_params + get_params + show_div + cplot_divs + \
+    create_name + get_log + compose_name + add_params
     with open(files['javascript'], 'w') as fd_js:
       print(js_all, file=fd_js)

@@ -1,0 +1,10 @@
+/home/adrianaf/.local/lib/python3.5/site-packages/sssweep-0.1.0-py3.5.egg
+/home/adrianaf/.local/bin/sslcp
+/home/adrianaf/.local/bin/ssave
+/home/adrianaf/.local/bin/sslrp
+/home/adrianaf/.local/bin/sspdf
+/home/adrianaf/.local/bin/sscdf
+/home/adrianaf/.local/bin/ssscat
+/home/adrianaf/.local/bin/ssperc
+/home/adrianaf/.local/bin/sslqp
+/home/adrianaf/.local/bin/ssllp

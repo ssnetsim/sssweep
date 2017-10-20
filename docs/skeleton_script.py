@@ -23,12 +23,17 @@ def main(args):
                            observers=[vob, cob],
                            failure_mode=taskrun.FailureMode.ACTIVE_CONTINUE)
 
-  # define resource usage
-  def get_resources(task_type, config):
+  # create task and resources function
+  def set_task_function(tm, name, cmd, console_out, task_type, config):
+    task = taskrun.ProcessTask(tm, name, cmd)
+    if console_out:
+      task.stdout_file = console_out
+      task.stderr_file = console_out
     if task_type is 'sim':
-      return {'cpus': 1, 'mem': args.simmem}
+      task.resources = {'cpus': 1, 'mem': args.simmem}
     else:
-      return {'cpus': 1, 'mem': 3}
+      task.resources = {'cpus': 1, 'mem': 3}
+    return task
 
   # readme information for README.txt
   readme = 'This is a skeleton script, duh!'
@@ -37,17 +42,17 @@ def main(args):
   # Sweeper
   # ========================================================================== #
   s = sssweep.Sweeper(args.supersim_path, args.settings_path,
-                      args.ssparse_path, args.out_dir,
+                      args.ssparse_path, set_task_function,
+                      args.out_dir,
                       parse_scalar=0.001, latency_units='ns',
                       latency_ymin=0, latency_ymax=500,
                       rate_ymin=0, rate_ymax=500,
                       titles='short',
-                      plot_style='colon',
+                      title_style='colon',
                       latency_mode='message',
                       sim=True, parse=True,
                       qplot=True, lplot=True, rplot=True, cplot=True,
-                      web_viewer=True, get_resources=get_resources,
-                      readme=readme)
+                      web_viewer=True, readme=readme)
 
   # ========================================================================== #
   # sweep variables & set commands

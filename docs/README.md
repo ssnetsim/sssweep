@@ -9,18 +9,19 @@ To run the SSSweep simulations, using the setup of the skeleton script, you can 
 
 Run command
 ```sh
-./skeleton_script.py [supersim bin] [JSON settings] [ssparse bin] [out dir] [start] [stop] [step]
+./skeleton_script.py [supersim bin] [JSON settings] [ssparse bin] [task func] [out dir] [start] [stop] [step]
 ```
 Here is the list of input arguments used by skeleton_script.py
 
 Mandatory:
 1. 'supersimPath' = 'location of SuperSim bin'
 2. 'settingsPath' = 'the JSON settings file'
-3. 'ssparsePath'= 'location of ssparse bin'
-4. 'outdir'= 'location of output files directory'
-5. 'start'='load start'
-6. 'stop'= 'load stop'
-7. 'step'='load step'
+3. 'ssparsePath' = 'location of ssparse bin'
+4. 'task func' = 'pointer to task function'
+4. 'outdir' = 'location of output files directory'
+5. 'start' ='load start'
+6. 'stop' = 'load stop'
+7. 'step' ='load step'
 
 Optional:
 - '-c', '--cpus','maximum number of cpus to use during run'
@@ -42,13 +43,13 @@ Now you are ready to launch the web plot viewer by running the following from th
 python3 -m http.server 8888
 ```
 
-This will run a local python server. Now you can open a web browser to view the results. If you are running the web browser in the same computer as the simulations, then type the following address:
+This will run a local python server, however you can use any web server of your preference. Now you can open a web browser to view the results. If you are running the web browser in the same computer as the simulations, then type the following address:
 ```
 http://localhost:8888/web_viewer/plots.html
 ```
 To access the web plot viewer from an external computer to where your files reside, you must know the IP of the computer where the files reside and replace `localhost` with that IP address.
 
-Once in your web-browser, on the left of the web plot viewer, you will see different drop-downs that are created based on your simulation configuration. You can first select between three plot types: lplot, qplot and cplot. Note, cplot is only activated if it is enabled on the sweeper object and there exist compare variables with more than one setting, e.g. routing algorithm: oblivious and adaptive.
+Once in your web-browser, on the left of the web plot viewer, you will see different drop-downs that are created based on your simulation configuration. You can first select between three plot types: lplot, rplot, qplot and cplot. Note, cplot is only activated if it is enabled on the sweeper object and there exist compare variables with more than one setting, e.g. routing algorithm: oblivious and adaptive.
 After selecting a plot type, the appropriate drop-down selectors will appear in correspondence to the existing plot type. Note, variables with only one option are not displayed and are automatically filled in the filename.
 The filename is displayed at the bottom of the selectors, if the filename is red, the requested figure does not exist. Once all the options are selected the plot is displayed automatically.
 
@@ -61,7 +62,7 @@ emacs skeleton_script.py
 ```
 
 ### TaskRun and resources
-First, we setup [TaskRun][], we create and configure the task manager, and define a function to get the computational resources.
+First, we setup [TaskRun][], we define the function that creates and configures the tasks.
 Here, the two important input arguments are the  `args.simmem` and the `args.log`. The `args.simmem` defines the amount of memory to use for simulations during a run (the default value is set to 10 G). In case you want to debug [TaskRun][], the `args.log` will print the output of the verbose observer in TaskRun to the file specified in the `args.log` argument.
 
 ### Sweeper
@@ -70,64 +71,75 @@ In this section we create the sweeper object as follows:
 
 ```python
 s = sssweep.Sweeper(args.supersim_path, args.settings_path,
-                    args.ssparse_path, args.out_dir,
+                    args.ssparse_path, create_task_func,
+                    args.out_dir,
                     parse_scalar=0.001, latency_units='ns',
-                    latency_ymin=0, ymax=500,
-                    rate_ymin=0, ymax=500,
+                    latency_ymin=0, latency_ymax=500,
+                    rate_ymin=0, rate_ymax=500,
+                    plot_style=None, plot_size=None,
                     titles='short',
-                    plot_style='colon',
+                    title_style='colon',
                     rate_mode='Message',
                     sim=True, parse=True,
                     qplot=True, lplot=True, cplot=True,
-                    web_viewer=True, get_resources=get_resources)
+                    web_viewer=True, readme=readme)
 ```
 
 This is the list of input arguments for Sweeper:
 
 Mandatory:
-* supersim_path, settings_path, ssparse_path, out_dir,
+* supersim_path, settings_path, ssparse_path, create_task_func, out_dir,
 Predefined:
 * parse_scalar=None, latency_units=None,
 * latency_ymin=None, latency_ymax=None,
 * rate_ymin=None, rate_ymax=None,
-* titles='short', plot_style='colon',
+* plot_style=None, plot_size=None,
+* titles='short', title_style='colon',
 * latency_mode='Packet', # 'Packet', 'Message', 'Transaction'
 * sim=True, parse=True,
 * qplot=True, lplot=True, cplot=True,
-* web_viewer=True,
-* get_resources=None
+* web_viewer=True
 
-First we set the **mandatory arguments** that are the input files and output directory in the following order:
+First we set the **mandatory arguments** that are the input files and output directory in the following order.
 ```python
-supersim_path, settings_path, ssparse_path, out_dir
+supersim_path, settings_path, ssparse_path, create_task_func, out_dir
+```
+
+The **create task func** is a function-pointer to a function defenition in your run script that creates the task and sets the resources. This function receives the, task manager variable, task name, task command, console output, task type and config. Here is an example:
+```python
+def set_task_function(tm, name, cmd, console_out, task_type, config):
+  task = taskrun.ProcessTask(tm, name, cmd)
+  if console_out:
+    task.stdout_file = console_out
+    task.stderr_file = console_out
+  if task_type is 'sim':
+    task.resources = {'cpus': 1, 'mem': 5}
+  else:
+    task.resources = {'cpus': 1, 'mem': 3}
+  return task
 ```
 
 Next we define the **plot settings** using the previously set variables of ymin, ymax, as well as the parsing unit and units for latency plot.
 ```python
-parse_scalar=None, latency_units=None, latency_ymin=None, latency_ymax=None, rate_ymin=None, rate_ymax=None,
+parse_scalar=None, latency_units=None, latency_ymin=None, latency_ymax=None, rate_ymin=None, rate_ymax=None, plot_style=None, plot_size=None,
 ```
 
-Additional plot settings exist for plot titles. In SSSweep, you can enable long titles which use the full length of the variable name or you can enable short titles (`long_titles=False`) to use the shortnames on the titles. As well with the variable plot_style you have two options for dividers "colon" or "equal". You can use any combination of these two settings of `long_titles` and `plot_style` to define you preferred title format.
+Additional plot settings exist for plot titles. In SSSweep, you can enable long titles which use the full length of the variable name or you can enable short titles to use the shortnames on the titles. As well with the variable title_style you have two options for dividers "colon" or "equal". You can use any combination of these two settings of `titles` and `title_style` to define you preferred title format.
 
 Here are some examples:
-- [_titles='long', plot_style='colon'_] Load vs. Latency (TrafficPattern: UR, RoutingAlgorithm: AD)
-- [_titles='long', plot_style='equal'_] Load vs. Latency (TrafficPattern=UR RoutingAlgorithm=AD)
-- [_titles='short', plot_style='colon'_] LvL (TP: UR, RA: AD)
-- [_titles='short', plot_style='equal'_] LvL (TP=UR RA=AD)
+- [_titles='long', title_style='colon'_] Load vs. Latency (TrafficPattern: UR, RoutingAlgorithm: AD)
+- [_titles='long', title_style='equal'_] Load vs. Latency (TrafficPattern=UR RoutingAlgorithm=AD)
+- [_titles='short', title_style='colon'_] LvL (TP: UR, RA: AD)
+- [_titles='short', title_style='equal'_] LvL (TP=UR RA=AD)
 
-Next, you can define the **latency mode** with either 'Packet', 'Message' or 'Transaction' latency data:
+Next, you can define the **latency mode** with either 'packet-header', 'packet', 'message', 'transaction':
 ```python
-latency_mode='Packet', # 'Packet', 'Message', 'Transaction'
+latency_mode='packet', # 'packet-header', 'packet', 'message', 'transaction'
 ```
 
 Further, SSSweep gives you the flexability to enable or disable the execution of the **simulation, parsing, qplot, lplot, rplot, cplot, or web_viewer**.
 ```python
 sim=True, parse=True, qplot=True, lplot=True, rplot=True, cplot=True, web_viewer=True
-```
-
-The last argument gets memory resources for the simulation, which needs a function pointer to the resources function defined in the TaskRun section.
-```python
- get_resources=get_resources
 ```
 
 ### Sweep variables and set commands
