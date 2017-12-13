@@ -44,7 +44,7 @@ class Sweeper(object):
                supersim_path, settings_path, ssparse_path,
                transient_path, create_task_func, out_dir,
                parse_scalar=None, latency_units=None,
-               sim=True, viewer=True, readme=None):
+               sim=True, viewer='dev', readme=None):
     """
     Constructs a Sweeper object
 
@@ -58,7 +58,7 @@ class Sweeper(object):
       parse_scalar   : latency scalar for parsing (None)
       latency_units  : unit of latency for plots (None)
       sim            : bools to enable/disable sim (True)
-      viewer         : bool to enable/disable web viewer (True)
+      viewer         :  web viewer (dev/prod)
       readme         : text for readme file (None)
     """
     # mandatory
@@ -73,7 +73,7 @@ class Sweeper(object):
     self._parse_scalar = parse_scalar
     self._latency_units = latency_units
     self._sim = sim
-    self._viewer = viewer
+    self._viewer = viewer.lower()
     self._readme = readme
 
     # load sweep values
@@ -643,9 +643,8 @@ class Sweeper(object):
         self._create_timelat_tasks(tm_var, filter_name)
 
     # viewer
-    if self._viewer:
-      print("Creating viewer")
-      self._create_viewer_task()
+    print("Creating viewer")
+    self._create_viewer_task()
 
     # all cmds
     if self._all_cmds is not None:
@@ -1338,7 +1337,7 @@ class Sweeper(object):
 
     show_div = get_show_div(self)
     cplot_divs = get_cplot_divs(self)
-    create_name = get_create_name()
+    create_name = get_create_name(self)
     compose_name = get_compose_name(self)
 
     js_all = load_params + get_params + show_div + cplot_divs + \

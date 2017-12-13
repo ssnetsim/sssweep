@@ -86,7 +86,7 @@ h2 {font-size: 20px !important; text-align:center;}
 .main {text-align: center;}
 
 .aside-1 {
-  border-right: medium solid #614767;/* #C6C9CA;*/
+  /*border-right: medium solid #614767; #C6C9CA;*/
   background: #fff; /*#eee*/
   /*background: #425563; color: #fff;*/
 }
@@ -113,7 +113,7 @@ h2 {font-size: 20px !important; text-align:center;}
 @media (max-width: 1000px) {
     .wrapper { height: auto;}
     .logo img {height:40px;}
-    .aside-1 {border: none; border-bottom: thin solid #C6C9CA;}
+    .aside-1 {border: none; /*border-bottom: thin solid #C6C9CA;*/}
     .plotImg {height: auto; width:auto;}
     br {
         content: ' '
@@ -186,8 +186,9 @@ def get_html_bottom(self):
     <p id ="sim_log" style="display:none">
       <a id="sim_log_a" href="" target="_blank">simulation log</a>
     </p>
+    <input id="cachingOff" type="checkbox" name="cachingoff" onclick="cashingfunc()"/>
+    <label>Bypass cache [Debug Mode]</label>
     </div>
-    <input id="cachingOff" type="checkbox" name="cachingoff" onclick="cashingfunc()"/> Bypass cache [Debug Mode] <br>
 """
   if self._readme is not None:
     html_bottom += """\
@@ -485,25 +486,26 @@ function CplotDivs(elem) {{
   return top + dyn + bottom
 
 
-def get_create_name():
+def get_create_name(self):
   create_name = """\
 function noImgFile() {
   document.getElementById("plot_name").style.color = "red";
   document.getElementById("plot").style.display='none';
   document.getElementById("sim_log_a").style.color = "red";
 }
-
-function createName() {
-  document.getElementById("settings").style.display = "block";
+"""
+  create_name_dyn = """
+function createName() {{
+  document.getElementById("settings").style.display = "{0}";
   document.getElementById("plot").style.display="block";
   document.getElementById("plot_name").innerHTML = composeName();
   document.getElementById("plot_name").style.color = "black";
 
-  if ($('#cachingOff').is(':checked')) {
+  if ($('#cachingOff').is(':checked')) {{
     document.getElementById('plot').src = '../plots/' + composeName() + '?time='+ new Date().getTime();
-  } else {
+  }} else {{
     document.getElementById('plot').src = '../plots/' + composeName();
-  }
+  }}
 
   if (document.getElementById("mode_sel").value == "latpdf"
 || document.getElementById("mode_sel").value == "latcdf"
@@ -512,14 +514,14 @@ function createName() {
 || document.getElementById("mode_sel").value == "timepermin"
 || document.getElementById("mode_sel").value == "timeavehops"
 || document.getElementById("mode_sel").value == "timelat"
-) {
+) {{
     document.getElementById("sim_log_a").style.color = "blue";
     document.getElementById("sim_log_a").href = '../logs/' + getSimLog();
-  }
+  }}
   addURLparams();
-}
-"""
-  return create_name
+}}""".format('block' if self._viewer == 'dev' else 'none')
+
+  return create_name+ create_name_dyn
 
 
 def get_sim_log(self):
