@@ -39,6 +39,8 @@ html, body, .viewport {
     height: 100%;
     margin: 0;
     padding: 0;
+    background: #425563;
+    color: #fff;
 }
 
 html *
@@ -88,7 +90,6 @@ h2 {font-size: 20px !important; text-align:center;}
 
 .aside-1 {
   /*border-right: medium solid #614767; #C6C9CA;*/
-  background: #fff; /*#eee*/
   /*background: #425563; color: #fff;*/
 }
 
