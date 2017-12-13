@@ -44,7 +44,7 @@ class Sweeper(object):
                supersim_path, settings_path, ssparse_path,
                transient_path, create_task_func, out_dir,
                parse_scalar=None, latency_units=None,
-               sim=True, viewer='dev', readme=None):
+               sim=True, viewer='prod', readme=None):
     """
     Constructs a Sweeper object
 
@@ -58,7 +58,7 @@ class Sweeper(object):
       parse_scalar   : latency scalar for parsing (None)
       latency_units  : unit of latency for plots (None)
       sim            : bools to enable/disable sim (True)
-      viewer         :  web viewer (dev/prod)
+      viewer         : web viewer (dev/prod)
       readme         : text for readme file (None)
     """
     # mandatory
@@ -607,6 +607,8 @@ class Sweeper(object):
       print("Creating simulation tasks")
       self._create_sim_tasks(tm_var)
     # parsings
+    if len(self._parsings) > 0:
+      print("Creating parsing tasks")
     for f_name in self._parsings:
      # ssparse
       if self._parsings[f_name]['parse_type'] == 'ssparse':
@@ -620,6 +622,8 @@ class Sweeper(object):
       else:
         assert False
     # plots
+    if len(self._plots) > 0:
+      print("Creating plotting tasks")
     for plot_type, filter_name in self._plots:
       # none
       if plot_type == 'load-rate':
@@ -660,6 +664,7 @@ class Sweeper(object):
       cmd_f = os.path.join(self._out_dir, self._all_cmds_file)
       with open(cmd_f, 'w') as fd_cmd:
         fd_cmd.write('\n'.join(str(line) for line in self._all_cmds))
+
   # ===================================================================
   def _create_sim_tasks(self, tm_var):
     # create config
