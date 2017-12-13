@@ -29,6 +29,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
 """
 import ssplot
+import pkg_resources
 
 # css
 def get_css():
@@ -125,15 +126,15 @@ h2 {font-size: 20px !important; text-align:center;}
   return css
 
 # html
-def get_html_top(self, files):
+def get_html_top(self):
   html_top = ("""\
 <!DOCTYPE html>
 <html>
 <head>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-  <link rel="icon" type="image/png" href="https://www.hotplugs.co.uk/shop/media/ecom/cat/hpebox.png">
-  <link rel="stylesheet" href="{0}">
-  <script src="{1}"></script>
+  <link rel="icon" type="image/x-icon" href="{0}">
+  <link rel="stylesheet" href="{1}">
+  <script src="{2}"></script>
   <title>SuperSim Sweep</title>
 </head>
 <body>
@@ -142,8 +143,7 @@ def get_html_top(self, files):
   <aside class="aside aside-1">
          <!-- --------------------------------- -->
          <div class="logo">
-           <a href="."><img src="https://www.labs.hpe.com/img/home/labs-logo.png"
-                           alt="HPE Labs logo"/></a>
+           <a href="."><img src="{3}" alt="HPE Labs logo"/></a>
            <h2>SuperSim Plot Viewer</h2>
          </div>
          <!-- --------------------------------- -->
@@ -151,7 +151,8 @@ def get_html_top(self, files):
            Plot:<br>
            <select id="mode_sel" name="mode_select" onchange="showDiv(this)">
              <option disabled selected value> -- select an option -- </option>
-""".format(files['css_in'], files['javascript_in']))
+""".format(self._favicon_name, self._css_name, self._javascript_name,
+           self._mainlogo_name))
   d = ssplot.CommandLine.all_names()
 
   for plot_type, filter_name in sorted(self._plots.keys(), key=lambda x: x[1]):
@@ -667,3 +668,9 @@ function addURLparams() {
   var vars_sel_id = {1};
 """.format(var_div_id, var_sel_id)
   return top + dyn + bottom
+
+
+def copy_resource(resource, output):
+  ifd = pkg_resources.resource_stream('sssweep.resources', resource)
+  with open(output, 'wb') as ofd:
+    ofd.write(ifd.read())

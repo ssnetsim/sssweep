@@ -125,6 +125,13 @@ class Sweeper(object):
     self._plots_folder = 'plots'
     self._viewer_folder = 'viewer'
 
+    # files with static names
+    self._html_name = 'index.html'
+    self._javascript_name = 'dynamic_plot.js'
+    self._css_name = 'style.css'
+    self._favicon_name = 'favicon.ico'
+    self._mainlogo_name = 'labs-logo.png'
+
     #readme
     if self._readme is not None:
       readme_f = os.path.join(self._out_dir, 'README.txt')
@@ -566,13 +573,15 @@ class Sweeper(object):
     return {
       # viewer
       'html'          : os.path.join(
-        dir_var, self._viewer_folder, 'index.html'),
+        dir_var, self._viewer_folder, self._html_name),
       'javascript'    : os.path.join(
-        dir_var, self._viewer_folder, 'dynamic_plot.js'),
+        dir_var, self._viewer_folder, self._javascript_name),
       'css'           : os.path.join(
-        dir_var, self._viewer_folder, 'style.css'),
-      'javascript_in' : 'dynamic_plot.js',
-      'css_in'        : 'style.css'
+        dir_var, self._viewer_folder, self._css_name),
+      'favicon'       : os.path.join(
+        dir_var, self._viewer_folder, self._favicon_name),
+      'mainlogo'      : os.path.join(
+        dir_var, self._viewer_folder, self._mainlogo_name)
     }
 
   def create_tasks(self, tm_var):
@@ -1315,13 +1324,18 @@ class Sweeper(object):
   def _create_viewer_task(self):
     files = self._get_viewer_files('')
 
+    # resource files
+    for resource, output in [(self._favicon_name, files['favicon']),
+                             (self._mainlogo_name, files['mainlogo'])]:
+      copy_resource(resource, output)
+
     # css
     css = get_css()
     with open(files['css'], 'w') as fd_css:
       print(css, file=fd_css)
 
     # html
-    html_top = get_html_top(self, files)
+    html_top = get_html_top(self)
     html_bottom = get_html_bottom(self)
     html_dyn = get_html_dyn(self, ssplot.LoadLatencyStats.FIELDS)
 

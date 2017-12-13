@@ -59,7 +59,9 @@ setup(
     author_email='nicci02@hotmail.com and adrifloresm@gmail.com',
     license='BSD',
     url='http://github.com/nicmcd/sssweep',
-    packages=['sssweep'],
+    packages=['sssweep', 'sssweep.resources'],
+    package_data={'': ['*.png'],
+                  '': ['*.ico']},
     install_requires=['taskrun >= 3.0.0',
                       'ssplot >= 0.1.0'],
     )
