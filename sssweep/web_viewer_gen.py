@@ -127,7 +127,7 @@ h2 {font-size: 20px !important; text-align:center;}
   return css
 
 # html
-def get_html_top(self):
+def get_html_top(sweeper):
   html_top = ("""\
 <!DOCTYPE html>
 <html>
@@ -152,11 +152,11 @@ def get_html_top(self):
            Plot:<br>
            <select id="mode_sel" name="mode_select" onchange="showDiv(this)">
              <option disabled selected value> -- select an option -- </option>
-""".format(self._favicon_name, self._css_name, self._javascript_name,
-           self._mainlogo_name))
+""".format(sweeper._favicon_name, sweeper._css_name, sweeper._javascript_name,
+           sweeper._mainlogo_name))
   d = ssplot.CommandLine.all_names()
 
-  for plot_type, filter_name in sorted(self._plots.keys(), key=lambda x: x[1]):
+  for plot_type, filter_name in sorted(sweeper._plots.keys(), key=lambda x: x[1]):
     for pt in d:
       if plot_type in d[pt]:
         plot_name = d[pt][1]
@@ -165,7 +165,7 @@ def get_html_top(self):
       html_top += ("""\
              <option value="{0}">[{1}] {2}</option>
       """.format(plot_name, filter_name, plot_type))
-    elif self._comp_var_count != 0:
+    elif sweeper._comp_var_count != 0:
       html_top += ("""\
       <option value="{0}">[{1}] {2}</option>
       """.format(plot_name, filter_name, plot_type))
@@ -178,7 +178,7 @@ def get_html_top(self):
 """
   return html_top + html_top_end
 
-def get_html_bottom(self):
+def get_html_bottom(sweeper):
   html_bottom = """\
 <!-- --------------------------------- -->
     <div id="settings" style="display:none">
@@ -188,11 +188,11 @@ def get_html_bottom(self):
     <p id ="sim_log" style="display:none">
       <a id="sim_log_a" href="" target="_blank">simulation log</a>
     </p>
-    <input id="cachingOff" type="checkbox" name="cachingoff" onclick="cashingfunc()"/>
-    <label>Bypass cache [Debug Mode]</label>
+    <input id="cachingOff" type="checkbox"/>
+    <label>Bypass cache</label>
     </div>
 """
-  if self._readme is not None:
+  if sweeper._readme is not None:
     html_bottom += """\
     <p> <a href="../README.txt" target="_blank">README</a> </p>
 """
@@ -211,7 +211,7 @@ def get_html_bottom(self):
   return html_bottom + html_bottom2
 
 
-def get_html_dyn(self, load_latency_stats):
+def get_html_dyn(sweeper, load_latency_stats):
   html_dyn = ""
   vars_selector = ""
   cmp_selector = ""
@@ -226,7 +226,7 @@ def get_html_dyn(self, load_latency_stats):
 <div style ='display:none;' id="{0}">
 <p>Compare Variable:<br>
 <select id="{0}_sel" onchange="CplotDivs(this)">
-""".format(self._id_cmp))
+""".format(sweeper._id_cmp))
   # select an option
   disable_select = ("""\
 <option disabled selected value> -- select an option -- </option>
@@ -239,10 +239,10 @@ def get_html_dyn(self, load_latency_stats):
 <p>Latency Distribution:<br>
 <select id="{0}_sel" onchange="createName()">
   <option disabled selected value> -- select an option -- </option>
-""".format(self._id_lat_dist))
+""".format(sweeper._id_lat_dist))
 
   # dynamic generation of selects for html
-  for var in self._variables:
+  for var in sweeper._variables:
     # only one option - pre select it
     if len(var['values']) == 1:
       # start of selector
@@ -278,11 +278,11 @@ def get_html_dyn(self, load_latency_stats):
     vars_selector += selector
 
   # Compare Variables
-  for var in self._variables:
+  for var in sweeper._variables:
     if var['compare'] and len(var['values']) > 1:
       cmp_option += ("""  <option value="{1}">{0} ({1})</option>
 """.format(var['name'], var['short_name']))
-  if self._comp_var_count == 0: # no compare variable
+  if sweeper._comp_var_count == 0: # no compare variable
     cmp_option = ""
   else: # multiple comp variables
     cmp_option = disable_select + cmp_option
@@ -301,7 +301,7 @@ def get_html_dyn(self, load_latency_stats):
   return html_dyn
 
 # javascript
-def load_URL_params(self):
+def load_URL_params(sweeper):
   dyn = ""
   top ="""\
 document.onreadystatechange=function(){
@@ -312,7 +312,7 @@ document.onreadystatechange=function(){
   }
 """
   # loop through variables to assign parameters
-  for var in self._variables:
+  for var in sweeper._variables:
     dyn += ("""
   var {0}_val = getURLParameter('{0}_sel');
   if ({0}_val) {{
@@ -330,7 +330,7 @@ document.onreadystatechange=function(){
   if ({1}_val) {{
     document.getElementById('{1}_sel').value = {1}_val;   //  assign URL param to select field
   }}
-""").format(self._id_lat_dist, self._id_cmp)
+""").format(sweeper._id_lat_dist, sweeper._id_cmp)
 
   bottom = ("""\
 if (mode == "loadlatcomp") {{
@@ -343,7 +343,7 @@ if (mode == "loadlatcomp") {{
     showDiv(mode_obj);
   }}
 }}
-""").format(self._id_cmp)
+""").format(sweeper._id_cmp)
 
   return top + dyn + lat_cmp + bottom
 
@@ -354,7 +354,7 @@ def get_URL_params():
 """
   return get_url
 
-def get_show_div(self):
+def get_show_div(sweeper):
   top = """function showDiv(elem){
     document.getElementById("sim_log").style.display = "none";
 """
@@ -370,7 +370,7 @@ def get_show_div(self):
     document.getElementById('{0}').style.display = "none";
     document.getElementById('{1}').style.display = "none";
     document.getElementById("sim_log").style.display = "block";
-""".format(self._id_cmp, self._id_lat_dist)
+""".format(sweeper._id_cmp, sweeper._id_lat_dist)
 
   var_only_top = """\
   }} else if (elem.value == "loadlat"
@@ -381,7 +381,7 @@ def get_show_div(self):
     // no load no comp no loaddist
     document.getElementById('{0}').style.display = "none";
     document.getElementById('{1}').style.display = "none";
-""".format(self._id_cmp, self._id_lat_dist)
+""".format(sweeper._id_cmp, sweeper._id_lat_dist)
 # add no load
 
   cplot_top = """\
@@ -391,7 +391,7 @@ def get_show_div(self):
     document.getElementById('{0}').getElementsByTagName('option')[0].selected =
       "selected";
     document.getElementById('{1}').style.display = "none";
-""".format(self._id_cmp, self._id_lat_dist)
+""".format(sweeper._id_cmp, sweeper._id_lat_dist)
 
   bottom = """\
   }
@@ -403,7 +403,7 @@ createName();
   cplot_dyn = ""
   load_var_dyn = ""
   var_only_dyn = ""
-  for var in self._variables:
+  for var in sweeper._variables:
     # many options
     if len(var['values']) > 1:
       load_var_dyn += """\
@@ -418,7 +418,7 @@ createName();
 """.format(var['short_name'])
 
       # var_only has no load selector
-      if var['name'] == self._load_name:
+      if var['name'] == sweeper._load_name:
         var_only_dyn += """\
     document.getElementById('{0}').style.display = "none";
 """.format(var['short_name'])
@@ -445,7 +445,7 @@ createName();
 """.format(var['short_name'])
 
       # var_only has no load selector (if not needed)
-      if var['name'] == self._load_name:
+      if var['name'] == sweeper._load_name:
         var_only_dyn += """\
     document.getElementById('{0}').style.display = "none";
 """.format(var['short_name'])
@@ -457,11 +457,11 @@ createName();
   return top + id_one + load_var_top + load_var_dyn + var_only_top + \
     var_only_dyn + cplot_top + cplot_dyn + bottom
 
-def get_cplot_divs(self):
+def get_cplot_divs(sweeper):
   top = """\
 function CplotDivs(elem) {{
   document.getElementById('{0}').style.display = "block";
-""".format(self._id_lat_dist)
+""".format(sweeper._id_lat_dist)
 
   bottom = """\
   //deactive cvar
@@ -470,9 +470,9 @@ function CplotDivs(elem) {{
 }
 """
   dyn = ""
-  for var in self._variables:
+  for var in sweeper._variables:
     # no load selector
-    if var['name'] == self._load_name:
+    if var['name'] == sweeper._load_name:
       dyn += """\
   document.getElementById('{0}').style.display = "none"
 """.format(var['short_name'])
@@ -488,7 +488,7 @@ function CplotDivs(elem) {{
   return top + dyn + bottom
 
 
-def get_create_name(self):
+def get_create_name(sweeper):
   create_name = """\
 function noImgFile() {
   document.getElementById("plot_name").style.color = "red";
@@ -501,7 +501,7 @@ function createName() {{
   document.getElementById("settings").style.display = "{0}";
   document.getElementById("plot").style.display="block";
   document.getElementById("plot_name").innerHTML = composeName();
-  document.getElementById("plot_name").style.color = "black";
+  document.getElementById("plot_name").style.color = "white";
 
   if ($('#cachingOff').is(':checked')) {{
     document.getElementById('plot').src = '../plots/' + composeName() + '?time='+ new Date().getTime();
@@ -521,12 +521,12 @@ function createName() {{
     document.getElementById("sim_log_a").href = '../logs/' + getSimLog();
   }}
   addURLparams();
-}}""".format('block' if self._viewer == 'dev' else 'none')
+}}""".format('block' if sweeper._viewer == 'dev' else 'none')
 
   return create_name+ create_name_dyn
 
 
-def get_sim_log(self):
+def get_sim_log(sweeper):
   top = """\
 function getSimLog() {
 """
@@ -549,10 +549,10 @@ function getSimLog() {
   var_div_id = [] # list of div ids
   var_sel_id = [] # list of selectors ids
   # div ids
-  var_div_id.append(self._id_cmp)
-  for var in self._variables:
+  var_div_id.append(sweeper._id_cmp)
+  for var in sweeper._variables:
     var_div_id.append(var['short_name'])
-  var_div_id.append(self._id_lat_dist)
+  var_div_id.append(sweeper._id_lat_dist)
   # slector ids
   for v_id in var_div_id:
     sid = v_id + '_sel'
@@ -565,7 +565,7 @@ function getSimLog() {
   return top + dyn + bottom
 
 
-def get_compose_name(self):
+def get_compose_name(sweeper):
   top = """\
 function composeName() {
   plot_select = document.getElementById("mode_sel")
@@ -606,15 +606,15 @@ function composeName() {
   }}
   return m + cmp_var + '_' + f + y + '.png'
 }}
-""".format(self._id_cmp)
+""".format(sweeper._id_cmp)
   # format variables for js
   var_div_id = [] # list of div ids
   var_sel_id = [] # list of selectors ids
   # div ids
-  var_div_id.append(self._id_cmp)
-  for var in self._variables:
+  var_div_id.append(sweeper._id_cmp)
+  for var in sweeper._variables:
     var_div_id.append(var['short_name'])
-  var_div_id.append(self._id_lat_dist)
+  var_div_id.append(sweeper._id_lat_dist)
   # slector ids
   for v_id in var_div_id:
     sid = v_id + '_sel'
@@ -627,7 +627,7 @@ function composeName() {
   return top + dyn + bottom
 
 
-def add_URL_params(self):
+def add_URL_params(sweeper):
   top = """\
 function addURLparams() {
   var params = "";
@@ -655,10 +655,10 @@ function addURLparams() {
   var_div_id = [] # list of div ids
   var_sel_id = [] # list of selectors ids
   # div ids
-  var_div_id.append(self._id_cmp)
-  for var in self._variables:
+  var_div_id.append(sweeper._id_cmp)
+  for var in sweeper._variables:
     var_div_id.append(var['short_name'])
-  var_div_id.append(self._id_lat_dist)
+  var_div_id.append(sweeper._id_lat_dist)
   # slector ids
   for v_id in var_div_id:
     sid = v_id + '_sel'
