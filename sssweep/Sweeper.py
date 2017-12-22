@@ -190,7 +190,7 @@ class Sweeper(object):
     self._step = step
 
   def add_plot(self, plot_type, filter_name, filters = [],
-               title_format='long-colon', latency_mode='packet',
+               title_format='short-equal', latency_mode='packet',
                transient_args=None, **plot_settings):
     """
     This adds a plot and corresponding parsing.
@@ -218,6 +218,7 @@ class Sweeper(object):
       valid.append(d[pt][0])
       if plot_type in d[pt]:
         plot_type = d[pt][0]
+        short_ptype = d[pt][1]
         plot_names = d[pt]
         found = True
         break
@@ -292,6 +293,7 @@ class Sweeper(object):
     self._plots[(plot_type, filter_name)]={}
     self._plots[(plot_type, filter_name)]['parsing'] = parse_type
     self._plots[(plot_type, filter_name)]['plot_type'] = plot_type
+    self._plots[(plot_type, filter_name)]['short_plot_type'] = short_ptype
     self._plots[(plot_type, filter_name)]['settings'] = plot_settings
     self._plots[(plot_type, filter_name)]['title_format'] = title_f
     self._plots[(plot_type, filter_name)]['title_style'] = title_s
@@ -422,7 +424,7 @@ class Sweeper(object):
         assert False
     return '_'.join([str(x_values) for x_values in values])
 
-  def _make_title(self, config, plot_info):
+  def _make_title(self, config, plot_info, lat=None):
     if plot_info['title_style'] == 'colon':
       separ = ': '
       delim = ', '
@@ -434,8 +436,10 @@ class Sweeper(object):
     for y_values in config:
       if plot_info['title_format'] == 'long':
         name_values.append((y_values['name'], str(y_values['value'])))
+        plot_name = plot_info['plot_type'].replace("-", " ")
       elif plot_info['title_format'] == 'short':
         name_values.append((y_values['short_name'], str(y_values['value'])))
+        plot_name = plot_info['short_plot_type']
     #format
     title = ''
     for idx, x_values in enumerate(name_values):
@@ -444,10 +448,14 @@ class Sweeper(object):
         title += tmp + delim
       else:
         title += tmp
+
     if len(title) > 0 :
-      title = '"{0} ({1})"'.format(plot_info['plot_type'], title)
+      title = '"{0} ({1}"'.format(plot_name, title)
     else:
-      title = '"{0}"'.format(plot_info['plot_type'])
+      title = '"{0}"'.format(plot_name)
+    if plot_info['plot_type'] == 'load-latency-compare':
+      title += '" [{0}]"'.format(lat)
+    title += '")"'
     return title
 
   def _create_config(self, *args):
@@ -1278,7 +1286,7 @@ class Sweeper(object):
               loadlatcomp_cmd += (' --units {0}'.format(self._latency_units))
             if plot_info['title_format'] != 'off':
               loadlatcomp_title = self._make_title(loadlatcomp_config,
-                                                   plot_info)
+                                                   plot_info, lat=field)
               loadlatcomp_cmd += (' --title {0} '.format(loadlatcomp_title))
             loadlatcomp_cmd += (' --legend_title "{0}" '.format(
               cvar['name']))
