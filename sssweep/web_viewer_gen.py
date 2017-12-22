@@ -167,10 +167,9 @@ def get_html_top(sweeper):
       """.format(plot_name, filter_name, plot_type))
     elif sweeper._comp_var_count != 0:
       html_top += ("""\
-      <option value="{0}">[{1}] {2}</option>
+             <option value="{0}">[{1}] {2}</option>
       """.format(plot_name, filter_name, plot_type))
-  html_top_end = """
-           </select>
+  html_top_end = """ </select>
          </div>
          <hr>
 <!-- --------------------------------- -->
@@ -231,26 +230,24 @@ def get_html_dyn(sweeper, load_latency_stats):
   disable_select = ("""\
 <option disabled selected value> -- select an option -- </option>
 """)
-
   # latency distribution selector
   ld_option = ""
   ld_top = ("""\
 <div style ='display:none;' id="{0}">
 <p>Latency Distribution:<br>
 <select id="{0}_sel" onchange="createName()">
-  <option disabled selected value> -- select an option -- </option>
 """.format(sweeper._id_lat_dist))
 
   # dynamic generation of selects for html
   for var in sweeper._variables:
+    # start of selector
+    select_start = ("""<div style ='display:none;' id="{1}">
+<p>{0}:<br>
+<select id="{1}_sel" onchange="createName()">
+""".format(var['name'],
+           var['short_name']))
     # only one option - pre select it
     if len(var['values']) == 1:
-      # start of selector
-      select_start = ("""<div style ='display:none;' id="{1}">
-<p>{0}:
-<select id="{1}_sel" onchange="createName()">
-""".format(var['name'], var['short_name'])) # no "select an option"
-
       # options - iterate through values
       select_option = ""
       for val in var['values']:
@@ -260,14 +257,6 @@ def get_html_dyn(sweeper, load_latency_stats):
 
     # more than 1 value - multiple options
     elif len(var['values']) > 1:
-      # start of selector with select an option
-      select_start = ("""<div style ='display:none;' id="{1}">
-<p>{0}:<br>
-<select id="{1}_sel" onchange="createName()">
-  <option disabled selected value> -- select an option -- </option>
-""".format(var['name'],
-           var['short_name']))
-
       # options - iterate through values
       select_option = ""
       for val in var['values']:
@@ -280,12 +269,12 @@ def get_html_dyn(sweeper, load_latency_stats):
   # Compare Variables
   for var in sweeper._variables:
     if var['compare'] and len(var['values']) > 1:
-      cmp_option += ("""  <option value="{1}">{0} ({1})</option>
+      if sweeper._comp_var_count == 0: # no compare variable
+        cmp_option = ""
+      else: # multiple comp variables
+        cmp_option += ("""  <option value="{1}">{0} ({1})</option>
 """.format(var['name'], var['short_name']))
-  if sweeper._comp_var_count == 0: # no compare variable
-    cmp_option = ""
-  else: # multiple comp variables
-    cmp_option = disable_select + cmp_option
+        #cmp_option = disable_select + cmp_option
 
   # loop through latency distributions
   for field in load_latency_stats:
@@ -394,10 +383,12 @@ def get_show_div(sweeper):
 """.format(sweeper._id_cmp, sweeper._id_lat_dist)
 
   bottom = """\
-  }
+    c = document.getElementById('{0}_sel');
+    CplotDivs(c);
+  }}
 createName();
-}
-"""
+}}
+""".format(sweeper._id_cmp)
   #--------------------------------------------#
   id_one = ""
   cplot_dyn = ""
