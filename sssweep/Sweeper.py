@@ -58,7 +58,7 @@ class Sweeper(object):
       parse_scalar   : latency scalar for parsing (None)
       latency_units  : unit of latency for plots (None)
       sim            : bools to enable/disable sim (True)
-      viewer         : web viewer (dev/prod)
+      viewer         : web viewer (dev/prod/off)
       readme         : text for readme file (None)
     """
     # mandatory
@@ -86,6 +86,8 @@ class Sweeper(object):
     self._plots = {}
     self._all_cmds = []
     self._all_cmds_file = 'all_cmds.txt'
+    self._want_cmds = []
+    self._want_cmds_file = 'want_cmds.txt'
     self._created = False
     self._load_variable = None
     self._load_name = None
@@ -664,14 +666,20 @@ class Sweeper(object):
         self._create_timelat_tasks(tm_var, filter_name)
 
     # viewer
-    print("Creating viewer")
-    self._create_viewer_task()
+    if  self._viewer != 'off':
+      print("Creating viewer")
+      self._create_viewer_task()
 
     # all cmds
     if self._all_cmds is not None:
       cmd_f = os.path.join(self._out_dir, self._all_cmds_file)
       with open(cmd_f, 'w') as fd_cmd:
         fd_cmd.write('\n'.join(str(line) for line in self._all_cmds))
+
+    if self._want_cmds is not None:
+      cmd_f2 = os.path.join(self._out_dir, self._want_cmds_file)
+      with open(cmd_f2, 'w') as fd_cmd2:
+        fd_cmd2.write('\n'.join(str(line) for line in self._want_cmds))
 
   # ===================================================================
   def _create_sim_tasks(self, tm_var):
@@ -1307,7 +1315,11 @@ class Sweeper(object):
             for var_config in self._dim_iter(do_vars=cvar['name']):
               for var in var_config:
                 loadlatcomp_cmd += ' --data_label "{0}"'.format(var['value'])
-
+            want = []
+            for w in want:
+              if (w in plot_files['loadlatcomp_png']):
+                self._want_cmds.append(loadlatcomp_cmd)
+                print("added", w)
             self._all_cmds.append(loadlatcomp_cmd)
             # create task
             loadlatcomp_task = self._create_task_func(
