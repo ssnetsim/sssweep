@@ -293,7 +293,7 @@ def get_html_dyn(sweeper, load_latency_stats):
 def load_URL_params(sweeper):
   dyn = ""
   top ="""\
-document.onreadystatechange=function(){
+window.onload=function(){
   var mode = getURLParameter('mode_sel');
   if (mode) {
     mode_obj = document.getElementById('mode_sel');
@@ -322,7 +322,7 @@ document.onreadystatechange=function(){
 """).format(sweeper._id_lat_dist, sweeper._id_cmp)
 
   bottom = ("""\
-if (mode == "loadlatcomp") {{
+  if (mode == "loadlatcomp") {{
     document.getElementById('{0}').style.display = "block";
     if ({0}_val) {{
       c = document.getElementById('{0}_sel');
@@ -452,6 +452,7 @@ def get_cplot_divs(sweeper):
   top = """\
 function CplotDivs(elem) {{
   document.getElementById('{0}').style.display = "block";
+  document.getElementById("sim_log").style.display = "none";
 """.format(sweeper._id_lat_dist)
 
   bottom = """\
@@ -475,6 +476,7 @@ function CplotDivs(elem) {{
       elif len(var['values']) == 1:
         dyn += """\
   document.getElementById('{0}').style.display = "none";
+  document.getElementById('{0}').style.color = "blue";
 """.format(var['short_name'])
   return top + dyn + bottom
 
