@@ -324,8 +324,10 @@ class Sweeper(object):
     # build the variable
     configall = {'name': name, 'short_name': short_name, 'values': list(values),
                  'command': set_command, 'compare': compare}
+    assert len(configall) > 0
     # add the variable
     self._variables.append(configall)
+
 
   def _dim_iter(self, do_vars=None, dont=None):
     """
@@ -427,37 +429,56 @@ class Sweeper(object):
     return '_'.join([str(x_values) for x_values in values])
 
   def _make_title(self, config, plot_info, lat=None):
+    # plot name
+    if plot_info['title_format'] == 'long':
+      plot_name = plot_info['plot_type'].replace("-", " ")
+    elif plot_info['title_format'] == 'short':
+      plot_name = plot_info['short_plot_type']
+    else:
+      assert(false)
+    assert len(plot_name) > 0
+
+    # configs
+    name_values = []
+    if len(config) > 0:
+      for y_values in config:
+        if plot_info['title_format'] == 'long':
+          name_values.append((y_values['name'], str(y_values['value'])))
+        elif plot_info['title_format'] == 'short':
+          name_values.append((y_values['short_name'], str(y_values['value'])))
+        else:
+          assert(false)
+
+    # format title
     if plot_info['title_style'] == 'colon':
       separ = ': '
       delim = ', '
     else:
       separ = '='
       delim = ' '
-    #tuples
-    name_values = []
-    for y_values in config:
-      if plot_info['title_format'] == 'long':
-        name_values.append((y_values['name'], str(y_values['value'])))
-        plot_name = plot_info['plot_type'].replace("-", " ")
-      elif plot_info['title_format'] == 'short':
-        name_values.append((y_values['short_name'], str(y_values['value'])))
-        plot_name = plot_info['short_plot_type']
-    #format
-    title = ''
+
+    # config vars
+    v = ''
     for idx, x_values in enumerate(name_values):
       tmp = separ.join(x_values)
       if idx != len(name_values)-1:
-        title += tmp + delim
+        v += tmp + delim
       else:
-        title += tmp
+        v += tmp
 
-    if len(title) > 0 :
-      title = '"{0} ({1}"'.format(plot_name, title)
-    else:
-      title = '"{0}"'.format(plot_name)
+    title = '"{0}"'.format(plot_name)
+    if len(v) > 0 :
+      # if config vars
+      title += '" ({0}"'.format(v)
+
     if plot_info['plot_type'] == 'load-latency-compare':
+      # add latency distribution
       title += '" [{0}]"'.format(lat)
-    title += '")"'
+
+    if len(v) > 0 :
+      title += '")"'
+
+    assert len(title) > 0
     return title
 
   def _create_config(self, *args):
