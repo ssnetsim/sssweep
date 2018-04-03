@@ -32,6 +32,7 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 import os
+import stat
 import copy
 import ssplot
 import taskrun
@@ -44,7 +45,7 @@ class Sweeper(object):
                supersim_path, settings_path, ssparse_path,
                transient_path, create_task_func, out_dir,
                parse_scalar=None, latency_units=None,
-               sim=True, viewer='prod', readme=None):
+               sim=True, viewer='prod', readme=None, wanted_plots=[]):
     """
     Constructs a Sweeper object
 
@@ -60,6 +61,7 @@ class Sweeper(object):
       sim            : bools to enable/disable sim (True)
       viewer         : web viewer (dev/prod/off)
       readme         : text for readme file (None)
+      wanted_plots   : name of compare plot to get cmd []
     """
     # mandatory
     self._supersim_path = os.path.abspath(os.path.expanduser(supersim_path))
@@ -86,8 +88,9 @@ class Sweeper(object):
     self._plots = {}
     self._all_cmds = []
     self._all_cmds_file = 'all_cmds.txt'
-    self._want_cmds = []
-    self._want_cmds_file = 'want_cmds.txt'
+    self._wanted_plots = wanted_plots
+    self._plot_cmds = []
+    self._plot_cmds_file = 'plot_cmds.sh'
     self._created = False
     self._load_variable = None
     self._load_name = None
@@ -692,16 +695,19 @@ class Sweeper(object):
       self._create_viewer_task()
 
     # all cmds
-    if self._all_cmds is not None:
+    if len(self._all_cmds) is not 0:
       cmd_f = os.path.join(self._out_dir, self._all_cmds_file)
       with open(cmd_f, 'w') as fd_cmd:
         fd_cmd.write('\n'.join(str(line) for line in self._all_cmds))
 
-    if self._want_cmds is not None:
-      cmd_f2 = os.path.join(self._out_dir, self._want_cmds_file)
+    if len(self._plot_cmds) is not 0:
+      cmd_f2 = os.path.join(self._out_dir, self._plot_cmds_file)
       with open(cmd_f2, 'w') as fd_cmd2:
-        fd_cmd2.write('\n'.join(str(line) for line in self._want_cmds))
+        fd_cmd2.write('#!/bin/bash\n')
+        fd_cmd2.write('\n'.join(str(line) for line in self._plot_cmds))
 
+      st = os.stat(cmd_f2)
+      os.chmod(cmd_f2, st.st_mode | stat.S_IEXEC)
   # ===================================================================
   def _create_sim_tasks(self, tm_var):
     # create config
@@ -1336,11 +1342,11 @@ class Sweeper(object):
             for var_config in self._dim_iter(do_vars=cvar['name']):
               for var in var_config:
                 loadlatcomp_cmd += ' --data_label "{0}"'.format(var['value'])
-            want = []
-            for w in want:
+            for w in self._wanted_plots:
               if (w in plot_files['loadlatcomp_png']):
-                self._want_cmds.append(loadlatcomp_cmd)
+                self._plot_cmds.append(loadlatcomp_cmd)
                 print("added", w)
+
             self._all_cmds.append(loadlatcomp_cmd)
             # create task
             loadlatcomp_task = self._create_task_func(
