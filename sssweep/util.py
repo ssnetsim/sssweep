@@ -29,8 +29,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
 """
 
-from .Sweeper import Sweeper
-from .web_viewer_gen import *
-from .util import *
-
-__version__ = '0.1.0'
+def config_get_value(config, name):
+  for variable in config:
+    if variable['name'] == name or variable['short-name'] == name:
+      return variable['value']
