@@ -11,3 +11,8 @@ install:
 
 clean:
 	rm -rf build dist $(PYPKG).egg-info $(PYPKG)/*.pyc $(PYPKG)/__pycache__
+
+count:
+	@wc $(PYPKG)/*.py | sort -n -k1
+	@echo "files : "$(shell echo $(PYPKG)/*.py | wc -w)
+	@echo "commits : "$(shell git rev-list HEAD --count) 
