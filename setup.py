@@ -60,7 +60,7 @@ setup(
     license='BSD',
     url='http://github.com/nicmcd/sssweep',
     packages=['sssweep', 'sssweep.resources'],
-    package_data={'': ['*.png', '*.ico']},
+    package_data={'': ['*.png', '*.ico', '*.clr']},
     install_requires=['taskrun >= 3.0.0',
                       'ssplot >= 0.1.0'],
     )

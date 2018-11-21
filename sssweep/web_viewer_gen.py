@@ -32,14 +32,14 @@ import ssplot
 import pkg_resources
 
 # css
-def get_css():
+def get_css(sweeper):
   css = """\
 html, body, .viewport {
     width: 100%;
     height: 100%;
     margin: 0;
     padding: 0;
-    background: #425563;
+    background: BACKGROUNDCOLORHERE;
     color: #fff;
 }
 
@@ -83,15 +83,9 @@ img {
 
 h2 {font-size: 20px !important; text-align:center;}
 
-.logo img {height:45px;}
-
+.logo img {height:60px;}
 
 .main {text-align: center;}
-
-.aside-1 {
-  /*border-right: medium solid #614767; #C6C9CA;*/
-  /*background: #425563; color: #fff;*/
-}
 
 .plotImg {
     height: auto;
@@ -124,6 +118,7 @@ h2 {font-size: 20px !important; text-align:center;}
         content: ' '
     }
 }"""
+  css = css.replace('BACKGROUNDCOLORHERE', sweeper._background_color)
   return css
 
 # html
@@ -136,7 +131,7 @@ def get_html_top(sweeper):
   <link rel="icon" type="image/x-icon" href="{0}">
   <link rel="stylesheet" href="{1}">
   <script src="{2}"></script>
-  <title>SuperSim Sweep</title>
+  <title>Plot Viewer</title>
 </head>
 <body>
 <div class="wrapper">
@@ -144,8 +139,8 @@ def get_html_top(sweeper):
   <aside class="aside aside-1">
          <!-- --------------------------------- -->
          <div class="logo">
-           <a href="."><img src="{3}" alt="HPE Labs logo"/></a>
-           <h2>SuperSim Plot Viewer</h2>
+           <a href="."><img src="{3}" alt="Company logo"/></a>
+           <h2>Plot View</h2>
          </div>
          <!-- --------------------------------- -->
          <div id="mode" style="padding-bottom:5px">
@@ -668,3 +663,7 @@ def copy_resource(resource, output):
   ifd = pkg_resources.resource_stream('sssweep.resources', resource)
   with open(output, 'wb') as ofd:
     ofd.write(ifd.read())
+
+def read_resource(resource):
+  ifd = pkg_resources.resource_stream('sssweep.resources', resource)
+  return ifd.read().decode('utf-8')

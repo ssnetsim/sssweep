@@ -45,7 +45,8 @@ class Sweeper(object):
                supersim_path, settings_path, ssparse_path,
                transient_path, create_task_func, out_dir,
                parse_scalar=None, latency_units=None,
-               sim=True, viewer='prod', readme=None, wanted_plots=[]):
+               sim=True, viewer='prod', viewer_style='ss',
+               readme=None, wanted_plots=[]):
     """
     Constructs a Sweeper object
 
@@ -60,6 +61,7 @@ class Sweeper(object):
       latency_units  : unit of latency for plots (None)
       sim            : bools to enable/disable sim (True)
       viewer         : web viewer (dev/prod/off)
+      viewer_style   : style name of viewer
       readme         : text for readme file (None)
       wanted_plots   : name of compare plot to get cmd []
     """
@@ -130,12 +132,17 @@ class Sweeper(object):
     self._plots_folder = 'plots'
     self._viewer_folder = 'viewer'
 
-    # files with static names
+    # viewer output files with static names
     self._html_name = 'index.html'
     self._javascript_name = 'dynamic_plot.js'
     self._css_name = 'style.css'
     self._favicon_name = 'favicon.ico'
-    self._mainlogo_name = 'labs-logo.png'
+    self._mainlogo_name = 'logo.png'
+
+    # plot viewer style
+    self._favicon_res = '{}-favicon.ico'.format(viewer_style)
+    self._mainlogo_res = '{}-logo.png'.format(viewer_style)
+    self._background_res = '{}-color.clr'.format(viewer_style)
 
     #readme
     if self._readme is not None:
@@ -597,25 +604,21 @@ class Sweeper(object):
         dir_var, self._plots_folder, 'timelat_{0}.png'.format(id_task))
     }
 
-  def _get_viewer_files(self, id_task):
+  def _get_viewer_files(self):
     """
-    This creates file names for a given id_task
-    Args:
-    id_task   : id_task to generate files for viewer
+    This creates file names for the web viewer
     """
-    dir_var = self._out_dir
     return {
-      # viewer
       'html'          : os.path.join(
-        dir_var, self._viewer_folder, self._html_name),
+        self._out_dir, self._viewer_folder, self._html_name),
       'javascript'    : os.path.join(
-        dir_var, self._viewer_folder, self._javascript_name),
+        self._out_dir, self._viewer_folder, self._javascript_name),
       'css'           : os.path.join(
-        dir_var, self._viewer_folder, self._css_name),
+        self._out_dir, self._viewer_folder, self._css_name),
       'favicon'       : os.path.join(
-        dir_var, self._viewer_folder, self._favicon_name),
+        self._out_dir, self._viewer_folder, self._favicon_name),
       'mainlogo'      : os.path.join(
-        dir_var, self._viewer_folder, self._mainlogo_name)
+        self._out_dir, self._viewer_folder, self._mainlogo_name)
     }
 
   def create_tasks(self, tm_var):
@@ -1374,15 +1377,16 @@ class Sweeper(object):
             loadlatcomp_task.add_condition(loadlatcomp_fmc)
 
   def _create_viewer_task(self):
-    files = self._get_viewer_files('')
+    files = self._get_viewer_files()
 
     # resource files
-    for resource, output in [(self._favicon_name, files['favicon']),
-                             (self._mainlogo_name, files['mainlogo'])]:
+    for resource, output in [(self._favicon_res, files['favicon']),
+                             (self._mainlogo_res, files['mainlogo'])]:
       copy_resource(resource, output)
 
     # css
-    css = get_css()
+    self._background_color = read_resource(self._background_res)
+    css = get_css(self)
     with open(files['css'], 'w') as fd_css:
       print(css, file=fd_css)
 
