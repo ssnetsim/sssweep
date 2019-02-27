@@ -1401,7 +1401,7 @@ class Sweeper(object):
       copy_resource(resource, output)
 
     # css
-    self._background_color = read_resource(self._background_res)
+    self._background_color = read_resource(self._background_res).strip()
     css = get_css(self)
     with open(files['css'], 'w') as fd_css:
       print(css, file=fd_css)
