@@ -40,7 +40,7 @@ html, body, .viewport {
     margin: 0;
     padding: 0;
     background: BACKGROUNDCOLORHERE;
-    color: #fff;
+    color: TEXTCOLORHERE;
 }
 
 html *
@@ -119,6 +119,7 @@ h2 {font-size: 20px !important; text-align:center;}
     }
 }"""
   css = css.replace('BACKGROUNDCOLORHERE', sweeper._background_color)
+  css = css.replace('TEXTCOLORHERE', sweeper._text_color)
   return css
 
 # html

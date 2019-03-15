@@ -150,7 +150,7 @@ class Sweeper(object):
     # plot viewer style
     self._favicon_res = '{}-favicon.ico'.format(viewer_style)
     self._mainlogo_res = '{}-logo.png'.format(viewer_style)
-    self._background_res = '{}-color.clr'.format(viewer_style)
+    self._colors_res = '{}-color.clr'.format(viewer_style)
 
     # readme
     if self._readme is not None:
@@ -1416,7 +1416,9 @@ class Sweeper(object):
       copy_resource(resource, output)
 
     # css
-    self._background_color = read_resource(self._background_res).strip()
+    colors = read_resource(self._colors_res).strip()
+    self._background_color = colors.split(',')[0]
+    self._text_color = colors.split(',')[1]
     css = get_css(self)
     with open(files['css'], 'w') as fd_css:
       print(css, file=fd_css)
