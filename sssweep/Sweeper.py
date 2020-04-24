@@ -34,6 +34,7 @@ from __future__ import (absolute_import, division,
 import os
 import stat
 import copy
+import numpy
 import ssplot
 import taskrun
 
@@ -44,8 +45,8 @@ class Sweeper(object):
   def __init__(
       self, supersim_path, settings_path, ssparse_path, transient_path,
       create_task_func, out_dir, compress=True, check_paths=True,
-      parse_scalar=None, latency_units=None, sim=True, viewer='prod',
-      viewer_style='ss', readme=None, wanted_plots=[]):
+      latency_scalar=None, latency_units=None, load_units=None, sim=True,
+      viewer='prod', viewer_style='ss', readme=None, wanted_plots=[]):
     """
     Constructs a Sweeper object
 
@@ -59,7 +60,7 @@ class Sweeper(object):
       compress         : bool to enable/disable compression of data files
       check_paths      : check paths existence
 
-      parse_scalar     : latency scalar for parsing
+      latency_scalar   : latency scalar during parsing
       latency_units    : unit of latency for plots
       sim              : bool to enable/disable sim
       viewer           : web viewer (dev/prod/off)
@@ -77,8 +78,9 @@ class Sweeper(object):
     self._compress = compress
 
     # settings
-    self._parse_scalar = parse_scalar
+    self._latency_scalar = latency_scalar
     self._latency_units = latency_units
+    self._load_units = load_units
     self._sim = sim
     self._viewer = viewer.lower()
     self._readme = readme
@@ -201,8 +203,9 @@ class Sweeper(object):
       set_command       : pointer to command function
     """
     # build the variable
-    loads = ['{0:.02f}'.format(x_values/100)
-             for x_values in range(start, stop+1, step)]
+    assert start <= stop, 'start must be <= stop'
+    assert step > 0, 'step must be > 0.0'
+    loads = list(numpy.arange(start, stop, step))
     assert len(loads) > 0
     lconfig = {'name': name, 'short_name': short_name, 'values': list(loads),
                'command': set_command, 'compare' : False}
@@ -328,9 +331,9 @@ class Sweeper(object):
 
     Args:
       name          : name of sweep variable
-      short_name     : acronym of sweep variable for filename
+      short_name    : acronym of sweep variable for filename
       values        : values of variable to sweep through
-      set_command    : pointer to command function
+      set_command   : pointer to command function
       compare       : should this variable be compared in cplot
     """
     # verify unique values
@@ -339,7 +342,7 @@ class Sweeper(object):
     # check at least 1 value was given for variable
     assert len(values) > 0
 
-    # shornames do not support spaces
+    # short names do not support spaces
     assert ' ' not in short_name, 'Spaces not supported in short_name'
 
     # build the variable
@@ -739,6 +742,7 @@ class Sweeper(object):
 
       st = os.stat(cmd_f2)
       os.chmod(cmd_f2, st.st_mode | stat.S_IEXEC)
+
   # ===================================================================
   def _create_sim_tasks(self, tm_var):
     # create config
@@ -802,8 +806,8 @@ class Sweeper(object):
 
       if header_latency:
         ssparse_cmd += ' --headerlatency'
-      if self._parse_scalar is not None:
-        ssparse_cmd += ' -s {0}'.format(self._parse_scalar)
+      if self._latency_scalar is not None:
+        ssparse_cmd += ' -s {0}'.format(self._latency_scalar)
       # parse filters
       if filters is not None:
         for filter in filters:
@@ -841,8 +845,8 @@ class Sweeper(object):
 
       filters =  self._parsings[f_name]['filters']
       extra_args = self._parsings[f_name]['transient']
-      if self._parse_scalar is not None:
-        tparse_cmd += ' -s {0}'.format(self._parse_scalar)
+      if self._latency_scalar is not None:
+        tparse_cmd += ' -s {0}'.format(self._latency_scalar)
       if extra_args is not None:
         tparse_cmd += ' {0} '.format(extra_args)
       if filters is not None:
@@ -869,7 +873,7 @@ class Sweeper(object):
       # loadpermin cmd
       loadpermin_cmd = ('ssplot load-percent-minimal {0} {1} {2} {3} '
                    .format(files1['loadpermin_png'],
-                           self._start, self._stop + 1, self._step))
+                           self._start, self._stop, self._step))
       # plot settings
       plot_info = self._plots[('load-percent-minimal', f_name)]
       if plot_info['title_format'] != 'off':
@@ -917,11 +921,13 @@ class Sweeper(object):
       loadlat_cmd = ('ssplot load-latency --row {0} {1} {2} {3} {4} '
                    .format(self._parsings[f_name]['latency_mode'].title(),
                            files1['loadlat_png'],
-                           self._start, self._stop + 1, self._step))
+                           self._start, self._stop, self._step))
       # plot settings
       plot_info = self._plots[('load-latency', f_name)]
       if self._latency_units is not None:
-        loadlat_cmd += (' --units {0}'.format(self._latency_units))
+        loadlat_cmd += (' --latency_units {0}'.format(self._latency_units))
+      if self._load_units is not None:
+        loadlat_cmd += (' --load_units {0}'.format(self._load_units))
       if plot_info['title_format'] != 'off':
         loadlat_title = self._make_title(loadlat_config, plot_info)
         loadlat_cmd += (' --title {0} '.format(loadlat_title))
@@ -965,7 +971,7 @@ class Sweeper(object):
       # loadrateper cmd
       loadrateper_cmd = ('ssplot load-rate-percent {0} {1} {2} {3}'
                    .format(plot_files1['loadrateper_png'],
-                           self._start, self._stop + 1, self._step))
+                           self._start, self._stop, self._step))
       # add rate and hops files
       rates_files = ''
       hops_files = ''
@@ -1027,7 +1033,7 @@ class Sweeper(object):
       # plot settings
       plot_info = self._plots[('latency-pdf',f_name)]
       if self._latency_units is not None:
-        latpdf_cmd += (' --units {0}'.format(self._latency_units))
+        latpdf_cmd += (' --latency_units {0}'.format(self._latency_units))
       if plot_info['title_format'] != 'off':
         latpdf_title = self._make_title(latpdf_config, plot_info)
         latpdf_cmd += (' --title {0} '.format(latpdf_title))
@@ -1058,7 +1064,7 @@ class Sweeper(object):
       # plot settings
       plot_info = self._plots[('latency-percentile', f_name)]
       if self._latency_units is not None:
-        latperc_cmd += (' --units {0}'.format(self._latency_units))
+        latperc_cmd += (' --latency_units {0}'.format(self._latency_units))
       if plot_info['title_format'] != 'off':
         latperc_title = self._make_title(latperc_config, plot_info)
         latperc_cmd += (' --title {0} '.format(latperc_title))
@@ -1089,7 +1095,7 @@ class Sweeper(object):
       # plot settings
       plot_info = self._plots[('latency-cdf', f_name)]
       if self._latency_units is not None:
-        latcdf_cmd += (' --units {0}'.format(self._latency_units))
+        latcdf_cmd += (' --latency_units {0}'.format(self._latency_units))
       if plot_info['title_format'] != 'off':
         latcdf_title = self._make_title(latcdf_config, plot_info)
         latcdf_cmd += (' --title {0} '.format(latcdf_title))
@@ -1115,7 +1121,7 @@ class Sweeper(object):
       # loadavehops cmd
       loadavehops_cmd = ('ssplot load-average-hops {0} {1} {2} {3} '
                    .format(files1['loadavehops_png'],
-                           self._start, self._stop + 1, self._step))
+                           self._start, self._stop, self._step))
       # plot settings
       plot_info = self._plots[('load-average-hops', f_name)]
       if plot_info['title_format'] != 'off':
@@ -1166,7 +1172,7 @@ class Sweeper(object):
       # plot settings
       plot_info = self._plots[('time-latency-scatter', f_name)]
       if self._latency_units is not None:
-        timelatscat_cmd += (' --units {0}'.format(self._latency_units))
+        timelatscat_cmd += (' --latency_units {0}'.format(self._latency_units))
       if plot_info['title_format'] != 'off':
         timelatscat_title = self._make_title(timelatscat_config, plot_info)
         timelatscat_cmd += (' --title {0} '.format(timelatscat_title))
@@ -1261,7 +1267,7 @@ class Sweeper(object):
       # plot settings
       plot_info = self._plots[('time-latency', f_name)]
       if self._latency_units is not None:
-        timelat_cmd += (' --units {0}'.format(self._latency_units))
+        timelat_cmd += (' --latency_units {0}'.format(self._latency_units))
       if plot_info['title_format'] != 'off':
         timelat_title = self._make_title(timelat_config, plot_info)
         timelat_cmd += (' --title {0} '.format(timelat_title))
@@ -1291,7 +1297,7 @@ class Sweeper(object):
       # loadrate cmd
       loadrate_cmd = ('ssplot load-rate {0} {1} {2} {3}'
                    .format(plot_files1['loadrate_png'],
-                           self._start, self._stop + 1, self._step))
+                           self._start, self._stop, self._step))
       # add stats
       for loads in self._dim_iter(do_vars=self._load_name):
         id_task2 = self._make_id(loadrate_config, extra=self._make_id(loads))
@@ -1348,11 +1354,14 @@ class Sweeper(object):
                          '--field {1} {2} {3} {4} {5} '
                          .format(self._parsings[f_name]['latency_mode'].title(),
                                  field, plot_files['loadlatcomp_png'],
-                                 self._start, self._stop + 1, self._step))
+                                 self._start, self._stop, self._step))
             # plot settings
             plot_info = self._plots[('load-latency-compare',f_name)]
             if self._latency_units is not None:
-              loadlatcomp_cmd += (' --units {0}'.format(self._latency_units))
+              loadlatcomp_cmd += (' --latency_units {0}'.format(
+                self._latency_units))
+            if self._load_units is not None:
+              loadlatcomp_cmd += (' --load_units {0}'.format(self._load_units))
             if plot_info['title_format'] != 'off':
               loadlatcomp_title = self._make_title(loadlatcomp_config,
                                                    plot_info, lat=field)
