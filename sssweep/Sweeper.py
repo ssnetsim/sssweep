@@ -495,17 +495,20 @@ class Sweeper(object):
       else:
         v += tmp
 
-    title = '"{0}"'.format(plot_name)
+    title = '{0}'.format(plot_name)
     if len(v) > 0 :
       # if config vars
-      title += '" ({0}"'.format(v)
+      title += ' ({0}'.format(v)
 
     if plot_info['plot_type'] == 'load-latency-compare':
       # add latency distribution
-      title += '" [{0}]"'.format(lat)
+      title += ' [{0}]'.format(lat)
 
     if len(v) > 0 :
-      title += '")"'
+      title += ')'
+
+    # add quotes around title
+    title = '"{}"'.format(title)
 
     assert len(title) > 0
     return title
@@ -880,8 +883,8 @@ class Sweeper(object):
         loadpermin_title = self._make_title(loadpermin_config, plot_info)
         loadpermin_cmd += (' --title {0} '.format(loadpermin_title))
       for key in plot_info['settings']:
-        loadpermin_cmd += (' --{0} "{1}"'.format(key,
-                                                 plot_info['settings'][key]))
+        loadpermin_cmd += (' --{0} "{1}"'.format(
+          key, plot_info['settings'][key]))
       # add to loadpermin_cmd the stats files
       for loads in  self._dim_iter(do_vars=self._load_name):
         id_ssparse = self._make_id(loadpermin_config, f_name = f_name,
@@ -932,7 +935,8 @@ class Sweeper(object):
         loadlat_title = self._make_title(loadlat_config, plot_info)
         loadlat_cmd += (' --title {0} '.format(loadlat_title))
       for key in plot_info['settings']:
-        loadlat_cmd += (' --{0} "{1}"'.format(key,plot_info['settings'][key]))
+        loadlat_cmd += (' --{0} "{1}"'.format(
+          key,plot_info['settings'][key]))
       # add stats files
       for loads in  self._dim_iter(do_vars=self._load_name):
         id_task2 = self._make_id(loadlat_config, extra=self._make_id(loads),
@@ -991,8 +995,8 @@ class Sweeper(object):
         loadrateper_title = self._make_title(loadrateper_config, plot_info)
         loadrateper_cmd += (' --title {0} '.format(loadrateper_title))
       for key in plot_info['settings']:
-        loadrateper_cmd += (' --{0} "{1}"'.format(key,
-                                                plot_info['settings'][key]))
+        loadrateper_cmd += (' --{0} "{1}"'.format(
+          key, plot_info['settings'][key]))
       self._all_cmds.append(loadrateper_cmd)
       # create task
       loadrateper_task = self._create_task_func(
@@ -1038,7 +1042,8 @@ class Sweeper(object):
         latpdf_title = self._make_title(latpdf_config, plot_info)
         latpdf_cmd += (' --title {0} '.format(latpdf_title))
       for key in plot_info['settings']:
-        latpdf_cmd += (' --{0} "{1}"'.format(key,plot_info['settings'][key]))
+        latpdf_cmd += (' --{0} "{1}"'.format(
+          key,plot_info['settings'][key]))
 
       self._all_cmds.append(latpdf_cmd)
       # create tasks
@@ -1069,7 +1074,8 @@ class Sweeper(object):
         latperc_title = self._make_title(latperc_config, plot_info)
         latperc_cmd += (' --title {0} '.format(latperc_title))
       for key in plot_info['settings']:
-        latperc_cmd += (' --{0} "{1}"'.format(key,plot_info['settings'][key]))
+        latperc_cmd += (' --{0} "{1}"'.format(
+          key,plot_info['settings'][key]))
       self._all_cmds.append(latperc_cmd)
       # create tasks
       latperc_task = self._create_task_func(
@@ -1100,7 +1106,8 @@ class Sweeper(object):
         latcdf_title = self._make_title(latcdf_config, plot_info)
         latcdf_cmd += (' --title {0} '.format(latcdf_title))
       for key in plot_info['settings']:
-        latcdf_cmd += (' --{0} "{1}"'.format(key,plot_info['settings'][key]))
+        latcdf_cmd += (' --{0} "{1}"'.format(
+          key,plot_info['settings'][key]))
       self._all_cmds.append(latcdf_cmd)
       # create tasks
       latcdf_task = self._create_task_func(
@@ -1128,8 +1135,8 @@ class Sweeper(object):
         loadavehops_title = self._make_title(loadavehops_config, plot_info)
         loadavehops_cmd += (' --title {0} '.format(loadavehops_title))
       for key in plot_info['settings']:
-        loadavehops_cmd += (' --{0} "{1}"'.format(key,
-                                                  plot_info['settings'][key]))
+        loadavehops_cmd += (' --{0} "{1}"'.format(
+          key, plot_info['settings'][key]))
       # add the stats files
       for loads in  self._dim_iter(do_vars=self._load_name):
         id_task2 = self._make_id(loadavehops_config, extra=self._make_id(loads),
@@ -1177,8 +1184,8 @@ class Sweeper(object):
         timelatscat_title = self._make_title(timelatscat_config, plot_info)
         timelatscat_cmd += (' --title {0} '.format(timelatscat_title))
       for key in plot_info['settings']:
-        timelatscat_cmd += (' --{0} "{1}"'.format(key,
-                                                  plot_info['settings'][key]))
+        timelatscat_cmd += (' --{0} "{1}"'.format(
+          key, plot_info['settings'][key]))
       self._all_cmds.append(timelatscat_cmd)
       # create tasks
       timelatscat_task = self._create_task_func(
@@ -1208,8 +1215,8 @@ class Sweeper(object):
         timepermin_title = self._make_title(timepermin_config, plot_info)
         timepermin_cmd += (' --title {0} '.format(timepermin_title))
       for key in plot_info['settings']:
-        timepermin_cmd += (' --{0} "{1}"'.format(key,
-                                                  plot_info['settings'][key]))
+        timepermin_cmd += (' --{0} "{1}"'.format(
+          key, plot_info['settings'][key]))
       self._all_cmds.append(timepermin_cmd)
       # create tasks
       timepermin_task = self._create_task_func(
@@ -1239,8 +1246,8 @@ class Sweeper(object):
         timeavehops_title = self._make_title(timeavehops_config, plot_info)
         timeavehops_cmd += (' --title {0} '.format(timeavehops_title))
       for key in plot_info['settings']:
-        timeavehops_cmd += (' --{0} "{1}"'.format(key,
-                                                  plot_info['settings'][key]))
+        timeavehops_cmd += (' --{0} "{1}"'.format(
+          key, plot_info['settings'][key]))
       self._all_cmds.append(timeavehops_cmd)
       # create tasks
       timeavehops_task = self._create_task_func(
@@ -1272,8 +1279,8 @@ class Sweeper(object):
         timelat_title = self._make_title(timelat_config, plot_info)
         timelat_cmd += (' --title {0} '.format(timelat_title))
       for key in plot_info['settings']:
-        timelat_cmd += (' --{0} "{1}"'.format(key,
-                                                  plot_info['settings'][key]))
+        timelat_cmd += (' --{0} "{1}"'.format(
+          key, plot_info['settings'][key]))
       self._all_cmds.append(timelat_cmd)
       # create tasks
       timelat_task = self._create_task_func(
@@ -1309,7 +1316,8 @@ class Sweeper(object):
         loadrate_title = self._make_title(loadrate_config, plot_info)
         loadrate_cmd += (' --title {0} '.format(loadrate_title))
       for key in plot_info['settings']:
-        loadrate_cmd += (' --{0} "{1}"'.format(key,plot_info['settings'][key]))
+        loadrate_cmd += (' --{0} "{1}"'.format(
+          key,plot_info['settings'][key]))
       self._all_cmds.append(loadrate_cmd)
       # create task
       loadrate_task = self._create_task_func(
