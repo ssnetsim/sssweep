@@ -155,7 +155,7 @@ class Sweeper(object):
     self._colors_res = '{}-color.clr'.format(viewer_style)
 
     # readme
-    if self._readme is not None:
+    if self._readme != None:
       readme_f = os.path.join(self._out_dir, 'README.txt')
       with open(readme_f, 'w') as fd_readme:
         print(readme, file=fd_readme)
@@ -393,7 +393,7 @@ class Sweeper(object):
     # find top non-single value variable
     top_non_one = None
     for dim in reversed(range(len(widths))):
-      if widths[dim] is not 1:
+      if widths[dim] != 1:
         top_non_one = dim
         break
 
@@ -446,7 +446,7 @@ class Sweeper(object):
       extra    : extra values to append at the end (list or string)
     """
     values = [y_var['value'] for y_var in config]
-    if f_name is not None:
+    if f_name != None:
       values.insert(0, f_name)
     if extra:
       if isinstance(extra, str):
@@ -541,7 +541,7 @@ class Sweeper(object):
     Args:
       cmd   : cmd to clean (str or array)
     """
-    assert cmd is not None, 'You must return a command modifier'
+    assert cmd != None, 'You must return a command modifier'
     if isinstance(cmd, str):
       cmd = [cmd]
     clean = ' ' + ' '.join([str(x_values) for x_values in [y for y in cmd]])
@@ -732,12 +732,12 @@ class Sweeper(object):
       self._create_viewer_task()
 
     # all cmds
-    if len(self._all_cmds) is not 0:
+    if len(self._all_cmds) != 0:
       cmd_f = os.path.join(self._out_dir, self._all_cmds_file)
       with open(cmd_f, 'w') as fd_cmd:
         fd_cmd.write('\n'.join(str(line) for line in self._all_cmds))
 
-    if len(self._plot_cmds) is not 0:
+    if len(self._plot_cmds) != 0:
       cmd_f2 = os.path.join(self._out_dir, self._plot_cmds_file)
       with open(cmd_f2, 'w') as fd_cmd2:
         fd_cmd2.write('#!/bin/bash\n')
@@ -809,10 +809,10 @@ class Sweeper(object):
 
       if header_latency:
         ssparse_cmd += ' --headerlatency'
-      if self._latency_scalar is not None:
+      if self._latency_scalar != None:
         ssparse_cmd += ' -s {0}'.format(self._latency_scalar)
       # parse filters
-      if filters is not None:
+      if filters != None:
         for filter in filters:
           ssparse_cmd += ' -f {0}'.format(filter)
 
@@ -848,11 +848,11 @@ class Sweeper(object):
 
       filters =  self._parsings[f_name]['filters']
       extra_args = self._parsings[f_name]['transient']
-      if self._latency_scalar is not None:
+      if self._latency_scalar != None:
         tparse_cmd += ' -s {0}'.format(self._latency_scalar)
-      if extra_args is not None:
+      if extra_args != None:
         tparse_cmd += ' {0} '.format(extra_args)
-      if filters is not None:
+      if filters != None:
         for filter in filters:
           tparse_cmd += ' -f {0}'.format(filter)
 
@@ -927,9 +927,9 @@ class Sweeper(object):
                            self._start, self._stop, self._step))
       # plot settings
       plot_info = self._plots[('load-latency', f_name)]
-      if self._latency_units is not None:
+      if self._latency_units != None:
         loadlat_cmd += (' --latency_units {0}'.format(self._latency_units))
-      if self._load_units is not None:
+      if self._load_units != None:
         loadlat_cmd += (' --load_units {0}'.format(self._load_units))
       if plot_info['title_format'] != 'off':
         loadlat_title = self._make_title(loadlat_config, plot_info)
@@ -1036,7 +1036,7 @@ class Sweeper(object):
 
       # plot settings
       plot_info = self._plots[('latency-pdf',f_name)]
-      if self._latency_units is not None:
+      if self._latency_units != None:
         latpdf_cmd += (' --latency_units {0}'.format(self._latency_units))
       if plot_info['title_format'] != 'off':
         latpdf_title = self._make_title(latpdf_config, plot_info)
@@ -1068,7 +1068,7 @@ class Sweeper(object):
         plot_files['latperc_png'])
       # plot settings
       plot_info = self._plots[('latency-percentile', f_name)]
-      if self._latency_units is not None:
+      if self._latency_units != None:
         latperc_cmd += (' --latency_units {0}'.format(self._latency_units))
       if plot_info['title_format'] != 'off':
         latperc_title = self._make_title(latperc_config, plot_info)
@@ -1100,7 +1100,7 @@ class Sweeper(object):
 
       # plot settings
       plot_info = self._plots[('latency-cdf', f_name)]
-      if self._latency_units is not None:
+      if self._latency_units != None:
         latcdf_cmd += (' --latency_units {0}'.format(self._latency_units))
       if plot_info['title_format'] != 'off':
         latcdf_title = self._make_title(latcdf_config, plot_info)
@@ -1178,7 +1178,7 @@ class Sweeper(object):
 
       # plot settings
       plot_info = self._plots[('time-latency-scatter', f_name)]
-      if self._latency_units is not None:
+      if self._latency_units != None:
         timelatscat_cmd += (' --latency_units {0}'.format(self._latency_units))
       if plot_info['title_format'] != 'off':
         timelatscat_title = self._make_title(timelatscat_config, plot_info)
@@ -1273,7 +1273,7 @@ class Sweeper(object):
 
       # plot settings
       plot_info = self._plots[('time-latency', f_name)]
-      if self._latency_units is not None:
+      if self._latency_units != None:
         timelat_cmd += (' --latency_units {0}'.format(self._latency_units))
       if plot_info['title_format'] != 'off':
         timelat_title = self._make_title(timelat_config, plot_info)
@@ -1340,7 +1340,7 @@ class Sweeper(object):
   def _create_loadlatcomp_tasks(self, tm_var, f_name):
     # loop over all vars that should compared and have more than 1 value
     for cvar in self._variables:
-      if (cvar['name'] is not self._load_name and cvar['compare']
+      if (cvar['name'] != self._load_name and cvar['compare']
           and len(cvar['values']) > 1):
         # count number of compare variables
         self._comp_var_count += 1
@@ -1365,10 +1365,10 @@ class Sweeper(object):
                                  self._start, self._stop, self._step))
             # plot settings
             plot_info = self._plots[('load-latency-compare',f_name)]
-            if self._latency_units is not None:
+            if self._latency_units != None:
               loadlatcomp_cmd += (' --latency_units {0}'.format(
                 self._latency_units))
-            if self._load_units is not None:
+            if self._load_units != None:
               loadlatcomp_cmd += (' --load_units {0}'.format(self._load_units))
             if plot_info['title_format'] != 'off':
               loadlatcomp_title = self._make_title(loadlatcomp_config,
