@@ -757,10 +757,10 @@ class Sweeper(object):
       # sim command
       sim_cmd = (
         '{0} {1} '
-        'simulator.info_log.file=string={2} '
-        'workload.message_log.file=string={3} '
-        'workload.applications[0].rate_log.file=string={4} '
-        'network.channel_log.file=string={5}'
+        '/simulator/info_log/file=string={2} '
+        '/workload/message_log/file=string={3} '
+        '/workload/applications/0/rate_log/file=string={4} '
+        '/network/channel_log/file=string={5}'
       ).format(
         self._supersim_path,
         self._settings_path,
