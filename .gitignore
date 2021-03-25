@@ -38,3 +38,5 @@ nosetests.xml
 # figures
 #*.png
 #*.pdf
+
+files.txt

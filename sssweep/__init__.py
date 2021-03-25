@@ -33,4 +33,4 @@ from .Sweeper import Sweeper
 from .web_viewer_gen import *
 from .util import *
 
-__version__ = '0.1.0'
+__version__ = '1.1.0'
