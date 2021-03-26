@@ -62,5 +62,5 @@ setup(
     packages=['sssweep', 'sssweep.resources'],
     package_data={'': ['*.png', '*.ico', '*.clr']},
     install_requires=['taskrun >= 4.0.0',
-                      'ssplot >= 1.2.0'],
+                      'ssplot >= 1.2.1'],
     )
