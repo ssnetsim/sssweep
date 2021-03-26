@@ -266,7 +266,9 @@ class Sweeper(object):
       # check unique pair filter_name-filters per parsing type
       if filter_name not in self._parsings.keys(): # unique filter_name
         for key in self._parsings:
-          if parse_type == self._parsings[key]['parse_type']: # same parsing
+          if (parse_type == self._parsings[key]['parse_type'] and
+              header_latency == self._parsings[key]['header_latency'] and
+              lat_mode == self._parsings[key]['latency_mode']): # same parsing
             if (set(filters)) != (self._parsings[key]['filters']): # unique filters
               # ADD parsing
               self._parsings[filter_name] = {}
